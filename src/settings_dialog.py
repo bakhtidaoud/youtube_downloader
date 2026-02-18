@@ -91,9 +91,60 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self.tab_formats, "Quality")
         self.tabs.addTab(self.tab_scheduler, "Scheduling")
         
-        # Advanced/Network tabs (Simplified for demo)
-        self.tabs.addTab(QWidget(), "Network") # Placeholder
-        self.tabs.addTab(QWidget(), "Advanced") # Placeholder
+        # --- Network Tab ---
+        self.tab_network = QWidget()
+        net_layout = QFormLayout(self.tab_network)
+        net_layout.setContentsMargins(20, 20, 20, 20)
+        net_layout.setSpacing(15)
+        
+        self.proxy_url = QLineEdit()
+        self.proxy_url.setPlaceholderText("http://user:pass@host:port")
+        net_layout.addRow("Proxy URL:", self.proxy_url)
+        
+        self.socket_timeout = QSpinBox()
+        self.socket_timeout.setRange(10, 300)
+        net_layout.addRow("Socket Timeout (s):", self.socket_timeout)
+        
+        self.browser_cookies = QComboBox()
+        self.browser_cookies.addItems(["None", "chrome", "firefox", "edge", "safari", "opera", "vivaldi"])
+        net_layout.addRow("Import Browser Cookies:", self.browser_cookies)
+        
+        self.cookies_path = QLineEdit()
+        self.btn_cookies = QPushButton("Load .txt")
+        self.btn_cookies.clicked.connect(self.select_cookies)
+        ck_layout = QHBoxLayout()
+        ck_layout.addWidget(self.cookies_path)
+        ck_layout.addWidget(self.btn_cookies)
+        net_layout.addRow("Cookies File:", ck_layout)
+
+        # --- Advanced Tab ---
+        self.tab_advanced = QWidget()
+        adv_layout = QFormLayout(self.tab_advanced)
+        adv_layout.setContentsMargins(20, 20, 20, 20)
+        
+        self.archive_path = QLineEdit()
+        adv_layout.addRow("Download Archive:", self.archive_path)
+        
+        self.use_internal_browser = QCheckBox("Use Embedded Browser Engine")
+        adv_layout.addRow(self.use_internal_browser)
+        
+        self.experimental_drm = QCheckBox("Enable Experimental DRM (CDM)")
+        adv_layout.addRow(self.experimental_drm)
+        
+        self.cdm_path = QLineEdit()
+        self.btn_cdm = QPushButton("Load .wvd")
+        self.btn_cdm.clicked.connect(self.select_cdm)
+        cdm_row = QHBoxLayout()
+        cdm_row.addWidget(self.cdm_path)
+        cdm_row.addWidget(self.btn_cdm)
+        adv_layout.addRow("CDM Path:", cdm_row)
+
+        # Add tabs
+        self.tabs.addTab(self.tab_general, "General")
+        self.tabs.addTab(self.tab_formats, "Quality")
+        self.tabs.addTab(self.tab_scheduler, "Scheduling")
+        self.tabs.addTab(self.tab_network, "Network")
+        self.tabs.addTab(self.tab_advanced, "Advanced")
         
         self.layout.addWidget(self.tabs)
 
@@ -144,50 +195,13 @@ class SettingsDialog(QDialog):
         folder = QFileDialog.getExistingDirectory(self, "Select Download Folder")
         if folder: self.download_path.setText(folder)
 
-    def load_settings(self):
-        config = self.config_manager.config
-        self.download_path.setText(config.download_folder)
-        self.concurrent_downloads.setValue(config.max_concurrent)
-        self.dark_mode.setChecked(config.dark_mode)
-        
-        for combo, val in [(self.pref_quality, config.preferred_quality), 
-                          (self.video_codec, config.video_codec),
-                          (self.audio_codec, config.audio_codec)]:
-            idx = combo.findText(val)
-            if idx >= 0: combo.setCurrentIndex(idx)
-        
-        self.sch_enabled.setChecked(config.scheduler_enabled)
-        self.sch_start.setTime(QTime.fromString(config.scheduler_start, "HH:mm"))
-        self.sch_end.setTime(QTime.fromString(config.scheduler_end, "HH:mm"))
-
-    def save_settings(self):
-        self.config_manager.update(
-            download_folder=self.download_path.text(),
-            max_concurrent=self.concurrent_downloads.value(),
-            dark_mode=self.dark_mode.isChecked(),
-            preferred_quality=self.pref_quality.currentText(),
-            video_codec=self.video_codec.currentText(),
-            audio_codec=self.audio_codec.currentText(),
-            scheduler_enabled=self.sch_enabled.isChecked(),
-            scheduler_start=self.sch_start.time().toString("HH:mm"),
-            scheduler_end=self.sch_end.time().toString("HH:mm")
-        )
-        self.accept()
-
-    def select_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Download Folder")
-        if folder:
-            self.download_path.setText(folder)
-
     def select_cookies(self):
         file, _ = QFileDialog.getOpenFileName(self, "Select Cookies File", "", "Text files (*.txt)")
-        if file:
-            self.cookies_path.setText(file)
+        if file: self.cookies_path.setText(file)
 
     def select_cdm(self):
         file, _ = QFileDialog.getOpenFileName(self, "Select CDM Device", "", "Widevine Device (*.wvd)")
-        if file:
-            self.cdm_path.setText(file)
+        if file: self.cdm_path.setText(file)
 
     def load_settings(self):
         config = self.config_manager.config
@@ -195,11 +209,10 @@ class SettingsDialog(QDialog):
         self.concurrent_downloads.setValue(config.max_concurrent)
         self.dark_mode.setChecked(config.dark_mode)
         
-        # Helper to set combo box index
         def set_combo(combo, val):
-            index = combo.findText(val)
-            if index >= 0: combo.setCurrentIndex(index)
-
+            idx = combo.findText(val)
+            if idx >= 0: combo.setCurrentIndex(idx)
+        
         set_combo(self.pref_quality, config.preferred_quality)
         set_combo(self.video_codec, config.video_codec)
         set_combo(self.audio_codec, config.audio_codec)
@@ -213,13 +226,11 @@ class SettingsDialog(QDialog):
         self.experimental_drm.setChecked(config.experimental_drm)
         self.cdm_path.setText(config.cdm_path if config.cdm_path else "")
         
-        # Scheduler
         self.sch_enabled.setChecked(config.scheduler_enabled)
         self.sch_start.setTime(QTime.fromString(config.scheduler_start, "HH:mm"))
         self.sch_end.setTime(QTime.fromString(config.scheduler_end, "HH:mm"))
 
     def save_settings(self):
-        # Update config manager config object
         self.config_manager.update(
             download_folder=self.download_path.text(),
             max_concurrent=self.concurrent_downloads.value(),

@@ -57,9 +57,6 @@ class UpdateSignals(QObject):
     """Signals for the UpdateWorker."""
     update_found = pyqtSignal(str, str, str) # version, url, changelog
 
-class UpdateWorker(QThread):
-    pass # Existing code...
-
 class MetadataWorker(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
@@ -78,6 +75,8 @@ class MetadataWorker(QThread):
                 self.error.emit("Could not fetch video info.")
         except Exception as e:
             self.error.emit(str(e))
+
+class UpdateWorker(QThread):
     """Checks for updates in the background."""
     def __init__(self, signals):
         super().__init__()

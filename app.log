@@ -63,3 +63,33 @@ Traceback (most recent call last):
                        ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
 TypeError: MetadataWorker.__init__() takes 2 positional arguments but 3 were given
 
+2026-02-18 21:29:30,684 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "c:\projects\tkinter\youtube_download\main.py", line 714, in analyze_new_url
+    self.meta_worker = MetadataWorker(url, settings)
+                       ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+TypeError: MetadataWorker.__init__() takes 2 positional arguments but 3 were given
+
+2026-02-18 21:36:11,970 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:08:28,348 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:08:52,380 - UltraTube - INFO - Lazy loading Embedded Browser...
+2026-02-18 22:10:25,120 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "c:\projects\tkinter\youtube_download\main.py", line 845, in show_settings
+    dialog = SettingsDialog(self.config_manager, self.colors, self)
+  File "c:\projects\tkinter\youtube_download\src\settings_dialog.py", line 105, in __init__
+    self.load_settings()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "c:\projects\tkinter\youtube_download\src\settings_dialog.py", line 206, in load_settings
+    set_combo(self.browser_cookies, config.browser_cookies)
+              ^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SettingsDialog' object has no attribute 'browser_cookies'
+
+2026-02-18 22:19:24,870 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:19:50,593 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 691, in process_scheduled_queue
+    def process_scheduled_queue(self):
+    
+KeyboardInterrupt
+
