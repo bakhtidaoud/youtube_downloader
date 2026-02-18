@@ -80,90 +80,104 @@ class SubscriptionWorker(QThread):
 class SubscriptionItem(QFrame):
     remove_requested = pyqtSignal(str)
 
-    def __init__(self, sub_data):
+    def __init__(self, sub_data, colors):
         super().__init__()
         self.url = sub_data['url']
         self.title = sub_data.get('title', self.url)
         self.last_check = sub_data.get('last_check', 'Never')
+        self.colors = colors
         self.init_ui()
 
     def init_ui(self):
-        self.setFixedHeight(80)
-        self.setStyleSheet("""
-            QFrame {
-                background-color: #2c2c2e;
-                border-radius: 10px;
-                padding: 10px;
-                border: 1px solid #3a3a3c;
-            }
-            QLabel { color: white; border: none; }
+        self.setFixedHeight(90)
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.colors['card']};
+                border-radius: 16px;
+                padding: 15px;
+                border: 1px solid {self.colors['border']};
+            }}
+            QFrame:hover {{ border-color: {self.colors['accent']}; }}
         """)
         layout = QHBoxLayout(self)
 
         info_layout = QVBoxLayout()
-        self.lbl_title = QLabel(self.title if len(self.title) < 50 else self.title[:47] + "...")
-        self.lbl_title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.lbl_title = QLabel(self.title if len(self.title) < 60 else self.title[:57] + "...")
+        self.lbl_title.setStyleSheet(f"font-weight: 700; font-size: 15px; color: {self.colors['text']}; border: none;")
         
-        self.lbl_status = QLabel(f"Last check: {self.last_check}")
-        self.lbl_status.setStyleSheet("color: #8e8e93; font-size: 11px;")
+        self.lbl_status = QLabel(f"Sync Status: {self.last_check}")
+        self.lbl_status.setStyleSheet(f"color: {self.colors['sub_text']}; font-size: 12px; border: none;")
         
         info_layout.addWidget(self.lbl_title)
         info_layout.addWidget(self.lbl_status)
         layout.addLayout(info_layout, 1)
 
         self.btn_del = QPushButton("🗑")
-        self.btn_del.setFixedSize(35, 35)
-        self.btn_del.setStyleSheet("background: transparent; font-size: 16px;")
+        self.btn_del.setFixedSize(40, 40)
+        self.btn_del.setStyleSheet(f"""
+            QPushButton {{ 
+                background: transparent; 
+                font-size: 18px; 
+                color: {self.colors['sub_text']}; 
+                border: none;
+            }}
+            QPushButton:hover {{ color: {self.colors['danger']}; background: {self.colors['bg']}; border-radius: 10px; }}
+        """)
         self.btn_del.clicked.connect(lambda: self.remove_requested.emit(self.url))
         layout.addWidget(self.btn_del)
 
 class SubscriptionTab(QWidget):
-    def __init__(self, config_manager, parent=None):
+    def __init__(self, config_manager, colors, parent=None):
         super().__init__(parent)
         self.config_manager = config_manager
+        self.colors = colors
         self.init_ui()
         self.load_subscriptions()
         self.start_background_check()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(20)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(25)
 
         header = QLabel("Channel Subscriptions")
-        header.setStyleSheet("font-size: 28px; font-weight: 800; color: white;")
+        header.setStyleSheet(f"font-size: 32px; font-weight: 800; color: {self.colors['text']};")
         layout.addWidget(header)
 
         subheader = QLabel("Auto-download new videos from your favorite creators")
-        subheader.setStyleSheet("font-size: 14px; color: #8e8e93;")
+        subheader.setStyleSheet(f"font-size: 15px; color: {self.colors['sub_text']};")
         layout.addWidget(subheader)
 
         # Add Subscription Row
         add_layout = QHBoxLayout()
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("Paste Channel or Playlist URL...")
-        self.url_input.setFixedHeight(45)
-        self.url_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #2c2c2e;
-                border: 2px solid #3a3a3c;
-                border-radius: 8px;
-                color: white;
-                padding: 0 12px;
-            }
+        self.url_input.setFixedHeight(50)
+        self.url_input.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {self.colors['card']};
+                border: 2px solid {self.colors['border']};
+                border-radius: 12px;
+                color: {self.colors['text']};
+                padding: 0 15px;
+            }}
+            QLineEdit:focus {{ border-color: {self.colors['accent']}; }}
         """)
         add_layout.addWidget(self.url_input)
 
         self.btn_add = QPushButton("Add Subscription")
-        self.btn_add.setFixedHeight(45)
-        self.btn_add.setFixedWidth(150)
-        self.btn_add.setStyleSheet("""
-            QPushButton {
-                background-color: #0a84ff;
+        self.btn_add.setFixedHeight(50)
+        self.btn_add.setFixedWidth(180)
+        self.btn_add.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.colors['accent']};
                 color: white;
-                border-radius: 8px;
-                font-weight: 600;
-            }
+                border: none;
+                border-radius: 12px;
+                font-weight: 700;
+                font-size: 14px;
+            }}
+            QPushButton:hover {{ background-color: {self.colors['accent_light']}; }}
         """)
         self.btn_add.clicked.connect(self.add_subscription)
         add_layout.addWidget(self.btn_add)
@@ -182,7 +196,7 @@ class SubscriptionTab(QWidget):
 
     def _add_item_to_ui(self, sub_data):
         item = QListWidgetItem(self.list_widget)
-        widget = SubscriptionItem(sub_data)
+        widget = SubscriptionItem(sub_data, self.colors)
         item.setSizeHint(widget.sizeHint())
         widget.remove_requested.connect(self.remove_subscription)
         self.list_widget.addItem(item)

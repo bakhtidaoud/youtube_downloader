@@ -4,12 +4,18 @@ import subprocess
 import logging
 import logging.handlers
 import traceback
+import requests
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, 
     QPushButton, QLabel, QLineEdit, QComboBox, QListWidget, 
     QListWidgetItem, QFrame, QProgressBar, QStackedWidget,
-    QSystemTrayIcon, QGraphicsOpacityEffect, QMessageBox
+    QSystemTrayIcon, QGraphicsOpacityEffect, QMessageBox, QCheckBox
 )
+
+# 0. Constants
+CURRENT_VERSION = "1.0.0"
+# Replace with your actual GitHub RAW JSON URL
+UPDATE_URL = "https://raw.githubusercontent.com/username/repository/main/version.json"
 
 # 1. Setup Logging
 log_file = "app.log"
@@ -46,6 +52,54 @@ from src.config_manager import ConfigManager
 from src.settings_dialog import SettingsDialog
 from src.browser_tab import EmbeddedBrowser
 from src.subscription_tab import SubscriptionTab
+
+class UpdateSignals(QObject):
+    """Signals for the UpdateWorker."""
+    update_found = pyqtSignal(str, str, str) # version, url, changelog
+
+class UpdateWorker(QThread):
+    pass # Existing code...
+
+class MetadataWorker(QThread):
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+    
+    def __init__(self, url, settings):
+        super().__init__()
+        self.url = url
+        self.settings = settings
+        
+    def run(self):
+        try:
+            info = downloader.get_video_info(self.url, **self.settings)
+            if info:
+                self.finished.emit(info)
+            else:
+                self.error.emit("Could not fetch video info.")
+        except Exception as e:
+            self.error.emit(str(e))
+    """Checks for updates in the background."""
+    def __init__(self, signals):
+        super().__init__()
+        self.signals = signals
+
+    def run(self):
+        try:
+            logger.info("Checking for updates...")
+            response = requests.get(UPDATE_URL, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                latest_version = data.get("version")
+                download_url = data.get("url")
+                changelog = data.get("changelog", "No changelog provided.")
+                
+                if latest_version and latest_version != CURRENT_VERSION:
+                    logger.info(f"Update found: {latest_version}")
+                    self.signals.update_found.emit(latest_version, download_url, changelog)
+                else:
+                    logger.info("Application is up to date.")
+        except Exception as e:
+            logger.error(f"Failed to check for updates: {e}")
 
 class DownloadSignals(QObject):
     """Signals for the QRunnable worker."""
@@ -90,87 +144,149 @@ class ModernDownloadItem(QFrame):
         self.opacity_effect = QGraphicsOpacityEffect(self)
         self.setGraphicsEffect(self.opacity_effect)
         self.fade_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.fade_anim.setDuration(400)
+        self.fade_anim.setDuration(500)
         self.fade_anim.setStartValue(0)
         self.fade_anim.setEndValue(1)
         
         self.init_ui()
+        
+        # Pulse animation for loading state
+        self.pulse_timer = QTimer(self)
+        self.pulse_timer.timeout.connect(self.update_pulse)
+        self.pulse_val = 0
+        self.pulse_dir = 1
+        self.pulse_timer.start(50)
+        
         self.fade_anim.start()
 
-    def init_ui(self):
-        self.setFixedHeight(110)
-        self.update_style()
+    def update_pulse(self):
+        """Creates a professional 'breathing' effect during metadata fetch."""
+        if self.pbar.value() > 0:
+            self.pulse_timer.stop()
+            self.setStyleSheet(self.card_style(1.0)) # Solid state
+            return
+            
+        self.pulse_val += 0.05 * self.pulse_dir
+        if self.pulse_val >= 1.0: self.pulse_dir = -1
+        if self.pulse_val <= 0.3: self.pulse_dir = 1
         
-        layout = QVBoxLayout(self)
-        top_row = QHBoxLayout()
-        self.title_label = QLabel(self.url)
-        self.title_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        top_row.addWidget(self.title_label, 1)
+        self.setStyleSheet(self.card_style(self.pulse_val))
+
+    def card_style(self, alpha):
+        accent = self.colors['accent']
+        # Convert hex to RGBA for pulsed border
+        r = int(accent[1:3], 16)
+        g = int(accent[3:5], 16)
+        b = int(accent[5:7], 16)
+        
+        return f"""
+            ModernDownloadItem {{
+                background-color: {self.colors['card']};
+                border: 1px solid rgba({r}, {g}, {b}, {alpha});
+                border-radius: 16px;
+                margin-bottom: 8px;
+            }}
+            QPushButton {{
+                background: {self.colors['bg']};
+                border: 1px solid {self.colors['border']};
+                border-radius: 10px;
+                color: {self.colors['text']};
+            }}
+            QPushButton:hover {{
+                background: {accent};
+                color: white;
+            }}
+        """
+
+    def init_ui(self):
+        self.setFixedHeight(140)
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(18, 18, 18, 18)
+        self.layout.setSpacing(12)
+        
+        # Meta Row: Checkbox + Title + Actions
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(10)
+        
+        self.checkbox = QCheckBox()
+        self.checkbox.setFixedSize(22, 22)
+        self.checkbox.setChecked(True)
+        header_layout.addWidget(self.checkbox)
+
+        # Icon/Badge Placeholder
+        self.icon_label = QLabel("🎬")
+        self.icon_label.setFixedSize(28, 28)
+        self.icon_label.setStyleSheet(f"background: {self.colors['border']}; border-radius: 14px; font-size: 14px;")
+        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_layout.addWidget(self.icon_label)
+
+        self.title_label = QLabel(self.url if len(self.url) < 60 else self.url[:57] + "...")
+        self.title_label.setStyleSheet("font-size: 15px; font-weight: 800;")
+        header_layout.addWidget(self.title_label, 1)
 
         self.btn_open = QPushButton("📂")
-        self.btn_open.setFixedSize(30, 30)
+        self.btn_open.setFixedSize(34, 34)
         self.btn_open.setEnabled(False)
+        self.btn_open.setToolTip("Show in Folder")
         self.btn_open.clicked.connect(self.open_folder)
-        top_row.addWidget(self.btn_open)
+        header_layout.addWidget(self.btn_open)
 
         self.btn_cancel = QPushButton("✕")
-        self.btn_cancel.setFixedSize(30, 30)
+        self.btn_cancel.setFixedSize(34, 34)
+        self.btn_cancel.setToolTip("Remove Task")
         self.btn_cancel.clicked.connect(lambda: self.remove_requested.emit(self))
-        top_row.addWidget(self.btn_cancel)
-        layout.addLayout(top_row)
+        header_layout.addWidget(self.btn_cancel)
+        self.layout.addLayout(header_layout)
 
+        # Progress Section
         self.pbar = QProgressBar()
         self.pbar.setFixedHeight(6)
         self.pbar.setTextVisible(False)
-        layout.addWidget(self.pbar)
+        self.layout.addWidget(self.pbar)
         
         self.pbar_anim = QPropertyAnimation(self.pbar, b"value")
         self.pbar_anim.setDuration(400)
         self.pbar_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
-        bottom_row = QHBoxLayout()
-        self.status_label = QLabel("Initializing...")
-        self.status_label.setStyleSheet(f"font-size: 11px; color: {self.colors['sub_text']};")
-        bottom_row.addWidget(self.status_label)
-        bottom_row.addStretch()
-        self.stats_label = QLabel("- MB/s")
-        self.stats_label.setStyleSheet(f"font-size: 11px; color: {self.colors['sub_text']}; font-family: 'Consolas';")
-        bottom_row.addWidget(self.stats_label)
-        layout.addLayout(bottom_row)
+        # Status Footer
+        footer_layout = QHBoxLayout()
+        self.status_label = QLabel("🔍 Analyzing resource stream...")
+        self.status_label.setStyleSheet(f"font-size: 12px; font-weight: 500; color: {self.colors['accent']};")
+        footer_layout.addWidget(self.status_label)
+        footer_layout.addStretch()
+        
+        self.stats_label = QLabel("Awaiting connection")
+        self.stats_label.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {self.colors['sub_text']}; letter-spacing: 0.5px;")
+        footer_layout.addWidget(self.stats_label)
+        self.layout.addLayout(footer_layout)
+        
+        self.update_style()
 
     def update_style(self):
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {self.colors['card']};
-                border-radius: 12px;
-                padding: 10px;
-                border: 1px solid {self.colors['border']};
-            }}
-            QLabel {{ color: {self.colors['text']}; border: none; }}
-            QProgressBar {{ background-color: {self.colors['border']}; border-radius: 3px; }}
-            QProgressBar::chunk {{ background-color: {self.colors['accent']}; border-radius: 3px; }}
-            QPushButton {{ background: transparent; color: {self.colors['text']}; border-radius: 5px; }}
-            QPushButton:hover {{ background: {self.colors['border']}; }}
-        """)
+        # Initial call, further updates via pulse_timer
+        self.setStyleSheet(self.card_style(1.0))
 
     @pyqtSlot(object)
     def update_progress(self, prog: DownloadProgress):
+        if prog.title and prog.title != "Unknown":
+            self.title_label.setText(prog.title if len(prog.title) < 60 else prog.title[:57] + "...")
+        
+        target = int(prog.percentage)
+        if target > self.pbar.value():
+            self.pbar_anim.stop()
+            self.pbar_anim.setEndValue(target)
+            self.pbar_anim.start()
+            
+        self.stats_label.setText(f"{prog.speed} • {prog.eta} left")
+        
         if prog.status == 'downloading':
-            self.title_label.setText(prog.title if len(prog.title) < 50 else prog.title[:47] + "...")
-            target = int(prog.percentage)
-            if target > self.pbar.value():
-                self.pbar_anim.stop()
-                self.pbar_anim.setEndValue(target)
-                self.pbar_anim.start()
-            self.status_label.setText(f"Downloading... {prog.percentage}%")
-            self.stats_label.setText(f"{prog.speed} | {prog.eta}")
+            self.status_label.setText("🔥 Extracting high-fidelity layers...")
         elif prog.status == 'finished':
+            self.status_label.setText("Successfully Archived ✨")
             self.pbar.setValue(100)
-            self.status_label.setText("✅ Completed")
             self.btn_open.setEnabled(True)
-            if prog.filename:
-                self.file_path = prog.filename
-                self.finished_successfully.emit(os.path.basename(prog.filename))
+            self.btn_open.setStyleSheet(f"background: {self.colors['success']}; color: white; border: none;")
+            self.finished_successfully.emit(prog.title)
 
     def open_folder(self):
         folder = os.path.abspath("downloads")
@@ -195,24 +311,71 @@ class VideoDownloaderApp(QMainWindow):
         self.sched_timer.timeout.connect(self.process_scheduled_queue)
         self.sched_timer.start(10000) # Check every 10 seconds
         
+        # App Icon
+        self.app_icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "resources", "icon.ico"))
+        if os.path.exists(self.app_icon_path):
+            self.setWindowIcon(QIcon(self.app_icon_path))
+        
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(QIcon.fromTheme("download-main"))
+        self.tray_icon.setIcon(QIcon(self.app_icon_path) if os.path.exists(self.app_icon_path) else QIcon.fromTheme("download-main"))
         self.tray_icon.show()
 
         self.init_theme()
         self.init_ui()
         self.init_smart_mode()
+        
+        # Check for Updates
+        self.update_signals = UpdateSignals()
+        self.update_signals.update_found.connect(self.show_update_dialog)
+        self.update_thread = UpdateWorker(self.update_signals)
+        self.update_thread.start()
+
+    def show_update_dialog(self, version, url, changelog):
+        """Prompt the user when a new update is available."""
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.setWindowTitle("Update Available")
+        msg.setText(f"A new version of UltraTube is available: <b>v{version}</b>")
+        msg.setInformativeText(f"Would you like to download it now?\n\n<b>What's New:</b>\n{changelog}")
+        
+        yes_btn = msg.addButton("Download Now", QMessageBox.ButtonRole.YesRole)
+        msg.addButton("Later", QMessageBox.ButtonRole.NoRole)
+        
+        msg.exec()
+        
+        if msg.clickedButton() == yes_btn:
+            import webbrowser
+            webbrowser.open(url)
+            logger.info(f"User accepted update v{version}. Opening: {url}")
 
     def init_theme(self):
         is_dark = self.config_manager.config.dark_mode
-        self.colors = {
-            'bg': '#1c1c1e' if is_dark else '#f5f5f7',
-            'card': '#2c2c2e' if is_dark else '#ffffff',
-            'text': '#ffffff' if is_dark else '#1c1c1e',
-            'sub_text': '#8e8e93',
-            'border': '#3a3a3c' if is_dark else '#d1d1d6',
-            'accent': '#0a84ff'
-        }
+        if is_dark:
+            self.colors = {
+                'bg': '#0f0f12',         # Deep obsidian
+                'sidebar': '#16161a',    # Slightly lighter sidebar
+                'card': '#1c1c21',       # Floating cards
+                'text': '#f0f0f5',        # Near white
+                'sub_text': '#9494a5',   # Muted mauve
+                'border': '#2a2a32',     # Subtle separation
+                'accent': '#6366f1',     # Vibrant Indigo
+                'accent_light': '#818cf8',
+                'success': '#10b981',    # Emerald
+                'danger': '#ef4444'      # Rose
+            }
+        else:
+            self.colors = {
+                'bg': '#f8fafc',         # Clean slate
+                'sidebar': '#ffffff',
+                'card': '#ffffff',
+                'text': '#0f172a',       # Dark slate
+                'sub_text': '#64748b',   # Slate gray
+                'border': '#e2e8f0',     # Light dividers
+                'accent': '#4f46e5',     # Deep Indigo
+                'accent_light': '#6366f1',
+                'success': '#059669',
+                'danger': '#dc2626'
+            }
 
     def init_ui(self):
         self.central_widget = QWidget()
@@ -223,24 +386,27 @@ class VideoDownloaderApp(QMainWindow):
 
         # Sidebar
         self.sidebar = QWidget()
-        self.sidebar.setFixedWidth(70)
+        self.sidebar.setFixedWidth(240) # Wider sidebar for premium feel
         self.sidebar_layout = QVBoxLayout(self.sidebar)
-        self.sidebar_layout.setContentsMargins(5, 20, 5, 20)
-        self.sidebar_layout.setSpacing(15)
+        self.sidebar_layout.setContentsMargins(15, 30, 15, 20)
+        self.sidebar_layout.setSpacing(10)
         
-        self.btn_nav_down = self.create_nav_btn("📥", 0)
-        self.btn_nav_web = self.create_nav_btn("🌐", 1)
-        self.btn_nav_sub = self.create_nav_btn("⭐", 2)
+        app_title = QLabel("UltraTube")
+        app_title.setStyleSheet(f"font-size: 22px; font-weight: 900; color: {self.colors['accent']}; margin-bottom: 20px;")
+        self.sidebar_layout.addWidget(app_title)
+
+        self.btn_nav_down = self.create_nav_btn("📥  Downloader", 0)
+        self.btn_nav_web = self.create_nav_btn("🌐  Browser", 1)
+        self.btn_nav_sub = self.create_nav_btn("⭐  Subscriptions", 2)
         
         self.sidebar_layout.addWidget(self.btn_nav_down)
         self.sidebar_layout.addWidget(self.btn_nav_web)
         self.sidebar_layout.addWidget(self.btn_nav_sub)
         self.sidebar_layout.addStretch()
         
-        self.btn_report_bug = QPushButton("🐞")
-        self.btn_report_bug.setFixedSize(60, 60)
-        self.btn_report_bug.setStyleSheet(f"border: none; font-size: 20px; color: {self.colors['text']};")
-        self.btn_report_bug.setToolTip("Report a Bug / Copy Logs")
+        self.btn_report_bug = QPushButton("🐞  Report Issue")
+        self.btn_report_bug.setFixedSize(210, 45)
+        self.btn_report_bug.setStyleSheet(f"border: 1px solid {self.colors['border']}; font-weight: 600; text-align: left; padding-left: 15px;")
         self.btn_report_bug.clicked.connect(self.report_bug)
         self.sidebar_layout.addWidget(self.btn_report_bug)
         
@@ -250,7 +416,21 @@ class VideoDownloaderApp(QMainWindow):
         self.stack = QStackedWidget()
         self.main_layout.addWidget(self.stack)
 
-        # Downloader View
+        # 1. Downloader View (Immediate)
+        self.init_downloader_view()
+        
+        # 2. Lazy Placeholders
+        self.browser_view = None
+        self.subscription_view = None
+        
+        # Add placeholders to stack
+        self.stack.addWidget(self.download_view)
+        
+        # We'll add real widgets as indices are accessed
+        self.stack.insertWidget(1, QWidget()) # Placeholder for browser
+        self.stack.insertWidget(2, QWidget()) # Placeholder for subs
+
+    def init_downloader_view(self):
         self.download_view = QWidget()
         dl_layout = QVBoxLayout(self.download_view)
         dl_layout.setContentsMargins(30, 30, 30, 30)
@@ -308,60 +488,184 @@ class VideoDownloaderApp(QMainWindow):
         ])
         opt_row.addWidget(self.quality_combo)
         opt_row.addStretch()
-        self.download_btn = QPushButton("Start Download")
-        self.download_btn.setFixedSize(160, 45)
-        self.download_btn.clicked.connect(self.start_new_download)
-        opt_row.addWidget(self.download_btn)
+        
+        self.btn_analyze = QPushButton("Analyze & Add")
+        self.btn_analyze.setFixedSize(160, 45)
+        self.btn_analyze.setObjectName("download_btn")
+        self.btn_analyze.clicked.connect(self.analyze_new_url)
+        opt_row.addWidget(self.btn_analyze)
+        
         dl_layout.addLayout(opt_row)
 
+        # Batch Controls
+        self.batch_layout = QHBoxLayout()
+        self.cb_select_all = QCheckBox("Select All")
+        self.cb_select_all.setStyleSheet("font-weight: 600; font-size: 13px;")
+        self.cb_select_all.setChecked(True)
+        self.cb_select_all.clicked.connect(self.toggle_select_all)
+        self.batch_layout.addWidget(self.cb_select_all)
+        self.batch_layout.addStretch()
+        
+        self.btn_download_batch = QPushButton("Download Selected")
+        self.btn_download_batch.setFixedSize(180, 36)
+        self.btn_download_batch.setStyleSheet(f"background-color: {self.colors['accent']}; color: white; border-radius: 10px; font-weight: 700;")
+        self.btn_download_batch.clicked.connect(self.start_batch_download)
+        self.batch_layout.addWidget(self.btn_download_batch)
+        
+        dl_layout.addLayout(self.batch_layout)
+
         self.downloads_list = QListWidget()
-        dl_layout.addWidget(self.downloads_list)
+        self.downloads_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
+        self.downloads_list.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
+        self.downloads_list.setSpacing(5)
         
-        self.stack.addWidget(self.download_view)
-        self.stack.addWidget(EmbeddedBrowser())
-        self.stack.addWidget(SubscriptionTab(self.config_manager))
+        self.stack_dl = QStackedWidget()
         
-        self.stack.currentChanged.connect(self.update_nav_styles)
+        self.empty_state = QWidget()
+        empty_layout = QVBoxLayout(self.empty_state)
+        empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        empty_icon = QLabel("🚀")
+        empty_icon.setStyleSheet("font-size: 64px; margin-bottom: 10px;")
+        empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(empty_icon)
+        
+        empty_title = QLabel("Ready to Download")
+        empty_title.setStyleSheet("font-size: 20px; font-weight: 700;")
+        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(empty_title)
+        
+        empty_desc = QLabel("Paste a URL above to start your high-fidelity extraction journey.")
+        empty_desc.setStyleSheet(f"color: {self.colors['sub_text']}; font-size: 14px;")
+        empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(empty_desc)
+        
+        self.stack_dl.addWidget(self.empty_state)
+        self.stack_dl.addWidget(self.downloads_list)
+        dl_layout.addWidget(self.stack_dl)
+
+        self.stack.currentChanged.connect(self.on_stack_changed)
         self.apply_styles()
 
-    def create_nav_btn(self, icon, idx):
-        btn = QPushButton(icon)
-        btn.setFixedSize(60, 60)
+    def on_stack_changed(self, index):
+        """Lazy load tabs when they are first accessed."""
+        if index == 1 and self.browser_view is None:
+            logger.info("Lazy loading Embedded Browser...")
+            self.browser_view = EmbeddedBrowser()
+            self.stack.removeWidget(self.stack.widget(1))
+            self.stack.insertWidget(1, self.browser_view)
+            self.stack.setCurrentIndex(1)
+        elif index == 2 and self.subscription_view is None:
+            logger.info("Lazy loading Subscription Tab...")
+            self.subscription_view = SubscriptionTab(self.config_manager, self.colors)
+            self.stack.removeWidget(self.stack.widget(2))
+            self.stack.insertWidget(2, self.subscription_view)
+            self.stack.setCurrentIndex(2)
+        
+        self.update_nav_styles()
+
+    def create_nav_btn(self, text, idx):
+        btn = QPushButton(text)
+        btn.setFixedSize(210, 45)
+        btn.setStyleSheet("text-align: left; padding-left: 15px; font-size: 14px;")
         btn.clicked.connect(lambda: self.stack.setCurrentIndex(idx))
         return btn
 
     def apply_styles(self):
+        accent = self.colors['accent']
+        sidebar_bg = self.colors['sidebar']
         self.setStyleSheet(f"""
             QMainWindow {{ background-color: {self.colors['bg']}; }}
-            QWidget {{ color: {self.colors['text']}; font-family: 'Segoe UI'; }}
+            QWidget {{ color: {self.colors['text']}; font-family: 'Inter', 'Segoe UI', sans-serif; }}
+            
+            #sidebar {{ 
+                background-color: {sidebar_bg}; 
+                border-right: 1px solid {self.colors['border']}; 
+            }}
+            
             QLineEdit {{ 
                 background-color: {self.colors['card']}; 
-                border: 1px solid {self.colors['border']}; 
-                border-radius: 10px; padding: 10px; color: {self.colors['text']};
+                border: 2px solid {self.colors['border']}; 
+                border-radius: 12px; 
+                padding: 12px 20px; 
+                font-size: 15px;
+                color: {self.colors['text']};
             }}
+            QLineEdit:focus {{ border-color: {accent}; background-color: {self.colors['bg']}; }}
+            
             QComboBox {{ 
                 background-color: {self.colors['card']}; 
-                border: 1px solid {self.colors['border']}; 
-                border-radius: 8px; padding: 5px; color: {self.colors['text']};
+                border: 2px solid {self.colors['border']}; 
+                border-radius: 12px; 
+                padding: 10px 15px; 
+                font-size: 14px;
             }}
-            QPushButton {{
-                background-color: {self.colors['card']};
-                border: 1px solid {self.colors['border']};
-                border-radius: 8px;
-                color: {self.colors['text']};
-                font-weight: 600;
+            QComboBox::drop-down {{ border: none; }}
+            QComboBox:hover {{ border-color: {accent}; }}
+
+            #download_btn {{ 
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {accent}, stop:1 {self.colors['accent_light']});
+                color: white; 
+                border: none; 
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 800;
+                min-height: 50px;
             }}
-            QPushButton:hover {{ background-color: {self.colors['border']}; }}
-            QListWidget {{ background: transparent; border: none; }}
+            #download_btn:hover {{
+                background-color: {self.colors['accent_light']};
+            }}
+
+            QProgressBar {{
+                border: none;
+                background-color: {self.colors['border']};
+                height: 8px;
+                border-radius: 4px;
+            }}
+            QProgressBar::chunk {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {accent}, stop:1 {self.colors['accent_light']});
+                border-radius: 4px;
+            }}
+            
+            QListWidget {{ background: transparent; border: none; outline: none; }}
+            QListWidget::item {{ background: transparent; border: none; }}
+            QListWidget::item:selected {{ background: transparent; border: none; }}
+            QScrollBar:vertical {{
+                border: none;
+                background: transparent;
+                width: 6px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {self.colors['border']};
+                border-radius: 3px;
+                min-height: 40px;
+            }}
         """)
-        self.sidebar.setStyleSheet(f"background-color: {self.colors['bg']}; border-right: 1px solid {self.colors['border']};")
-        self.download_btn.setStyleSheet(f"background-color: {self.colors['accent']}; color: white; border: none; border-radius: 10px;")
+        self.sidebar.setObjectName("sidebar")
+        if hasattr(self, 'download_btn'):
+            self.download_btn.setObjectName("download_btn")
         self.update_nav_styles()
 
     def update_nav_styles(self):
         idx = self.stack.currentIndex()
-        for i, btn in enumerate([self.btn_nav_down, self.btn_nav_web, self.btn_nav_sub]):
-            btn.setStyleSheet(f"font-size: 24px; background: {self.colors['card'] if i==idx else 'transparent'}; border: none; border-radius: 12px;")
+        btns = [self.btn_nav_down, self.btn_nav_web, self.btn_nav_sub]
+        for i, btn in enumerate(btns):
+            is_active = (i == idx)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {self.colors['accent'] if is_active else 'transparent'};
+                    color: {'white' if is_active else self.colors['sub_text']};
+                    border: none;
+                    text-align: left;
+                    padding-left: 20px;
+                    font-weight: {'800' if is_active else '500'};
+                    border-radius: 10px;
+                }}
+                QPushButton:hover {{
+                    background-color: {self.colors['accent'] if is_active else self.colors['border']};
+                    color: white;
+                }}
+            """)
 
     def toggle_theme(self):
         self.config_manager.update(dark_mode=not self.config_manager.config.dark_mode)
@@ -392,27 +696,69 @@ class VideoDownloaderApp(QMainWindow):
                 widget.status_label.setText("Starting scheduled download...")
                 self.thread_pool.start(worker)
 
-    def start_new_download(self):
+    def analyze_new_url(self):
         url = self.url_input.text().strip()
         if not url: return
+        
+        self.btn_analyze.setEnabled(False)
+        self.btn_analyze.setText("Analyzing...")
+        
+        config = self.config_manager.config
+        settings = {
+            'proxy': config.proxy,
+            'cookie_file': config.cookies_file,
+            'internal_browser': config.use_internal_browser,
+            'allow_unplayable': config.experimental_drm,
+        }
+        
+        self.meta_worker = MetadataWorker(url, settings)
+        self.meta_worker.finished.connect(self.on_metadata_fetched)
+        self.meta_worker.error.connect(self.on_metadata_error)
+        self.meta_worker.start()
 
-        # 1. Get Selections
+    def on_metadata_error(self, error):
+        logger.error(f"Metadata analysis failed: {error}")
+        self.btn_analyze.setEnabled(True)
+        self.btn_analyze.setText("Analyze & Add")
+        QMessageBox.warning(self, "Analysis Failed", f"Could not analyze URL:\n{error}")
+
+    def on_metadata_fetched(self, info):
+        self.btn_analyze.setEnabled(True)
+        self.btn_analyze.setText("Analyze & Add")
+        self.url_input.clear()
+        
+        if self.stack_dl.currentIndex() == 0:
+            self.stack_dl.setCurrentIndex(1)
+
+        # Handle Playlist vs Single Video
+        entries = info.get('entries', [info])
+        for entry in entries:
+            video_url = entry.get('url') or entry.get('webpage_url')
+            if not video_url: continue
+            
+            title = entry.get('title') or video_url
+            
+            item = QListWidgetItem(self.downloads_list)
+            widget = ModernDownloadItem(video_url, self.colors)
+            widget.title_label.setText(title if len(title) < 60 else title[:57] + "...")
+            widget.status_label.setText("Ready for extraction")
+            widget.finished_successfully.connect(self.show_notification)
+            item.setSizeHint(widget.sizeHint())
+            self.downloads_list.addItem(item)
+            self.downloads_list.setItemWidget(item, widget)
+
+    def toggle_select_all(self, checked):
+        for i in range(self.downloads_list.count()):
+            item = self.downloads_list.item(i)
+            widget = self.downloads_list.itemWidget(item)
+            if hasattr(widget, 'checkbox'):
+                widget.checkbox.setChecked(checked)
+
+    def start_batch_download(self):
         fmt_type = self.format_combo.currentText()
         quality_str = self.quality_combo.currentText()
-
-        # Update Smart Mode if active
-        if self.config_manager.config.smart_mode:
-            self.config_manager.update(last_format=fmt_type, last_quality=quality_str)
-
-        # 2. Setup UI
-        item = QListWidgetItem(self.downloads_list)
-        widget = ModernDownloadItem(url, self.colors)
-        widget.finished_successfully.connect(self.show_notification)
-        item.setSizeHint(widget.sizeHint())
-        self.downloads_list.addItem(item)
-        self.downloads_list.setItemWidget(item, widget)
-
-        # 3. Prepare Settings
+        engine_format = "bestaudio/best" if fmt_type == "MP3 Audio" else quality_str
+        
         config = self.config_manager.config
         settings = {
             'download_dir': config.download_folder,
@@ -421,25 +767,28 @@ class VideoDownloaderApp(QMainWindow):
             'browser': config.browser_cookies if config.browser_cookies != "None" else None,
             'internal_browser': config.use_internal_browser,
             'allow_unplayable': config.experimental_drm,
-            'cdm_path': config.cdm_path
         }
 
-        # 4. Determine format_id for the engine
-        engine_format = "bestaudio/best" if fmt_type == "MP3 Audio" else quality_str
-
-        worker = DownloadWorker(url, format_id=engine_format, settings=settings)
-        worker.signals.progress.connect(widget.update_progress)
-        self.workers[url] = (worker, item)
-        
-        # 5. Check Schedule
-        if self.is_within_schedule():
-            self.thread_pool.start(worker)
-        else:
-            self.pending_queue.append((worker, widget))
-            widget.status_label.setText(f"Scheduled for {config.scheduler_start}")
+        count = 0
+        for i in range(self.downloads_list.count()):
+            item = self.downloads_list.item(i)
+            widget = self.downloads_list.itemWidget(item)
             
-        self.url_input.clear()
-        logger.info(f"Queued download for URL: {url} with format: {engine_format}")
+            if widget.checkbox.isChecked() and widget.pbar.value() == 0:
+                worker = DownloadWorker(widget.url, format_id=engine_format, settings=settings)
+                worker.signals.progress.connect(widget.update_progress)
+                
+                if self.is_within_schedule():
+                    self.thread_pool.start(worker)
+                else:
+                    self.pending_queue.append((worker, widget))
+                    widget.status_label.setText(f"Scheduled...")
+                
+                widget.checkbox.setEnabled(False) 
+                count += 1
+        
+        if count > 0:
+            logger.info(f"Started batch download for {count} items.")
 
     def report_bug(self):
         """Read logs and provide a way for the user to report issues."""
@@ -494,7 +843,8 @@ class VideoDownloaderApp(QMainWindow):
         self.thread_pool.setMaxThreadCount(limit)
 
     def show_settings(self):
-        if SettingsDialog(self.config_manager, self).exec():
+        dialog = SettingsDialog(self.config_manager, self.colors, self)
+        if dialog.exec():
             # Refresh if user changed settings
             self.update_thread_limit()
 

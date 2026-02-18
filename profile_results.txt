@@ -1,0 +1,58 @@
+         20598 function calls (20207 primitive calls) in 5.388 seconds
+
+   Ordered by: cumulative time
+   List reduced from 673 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    3.823    3.823    5.028    5.028 {built-in method exec}
+        1    0.000    0.000    1.168    1.168 C:\projects\tkinter\youtube_download\main.py:66(run)
+        1    0.000    0.000    1.161    1.161 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\requests\api.py:62(get)
+        1    0.000    0.000    1.161    1.161 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\requests\api.py:14(request)
+        1    0.000    0.000    1.161    1.161 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\requests\sessions.py:500(request)
+        1    0.000    0.000    1.156    1.156 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\requests\sessions.py:673(send)
+        1    0.000    0.000    1.155    1.155 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\requests\adapters.py:590(send)
+        1    0.000    0.000    1.153    1.153 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\connectionpool.py:592(urlopen)
+        1    0.000    0.000    1.150    1.150 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\connectionpool.py:377(_make_request)
+        1    0.000    0.000    0.967    0.967 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\connectionpool.py:1085(_validate_conn)
+        1    0.000    0.000    0.967    0.967 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\connection.py:724(connect)
+        1    0.051    0.051    0.872    0.872 C:\projects\tkinter\youtube_download\main.py:215(__init__)
+        1    0.000    0.000    0.868    0.868 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\connection.py:901(_ssl_wrap_socket_and_match_hostname)
+        1    0.000    0.000    0.843    0.843 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\util\ssl_.py:413(ssl_wrap_socket)
+        1    0.775    0.775    0.775    0.775 {method 'load_verify_locations' of '_ssl._SSLContext' objects}
+        1    0.002    0.002    0.759    0.759 C:\projects\tkinter\youtube_download\main.py:280(init_ui)
+        1    0.000    0.000    0.183    0.183 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\connection.py:540(getresponse)
+        1    0.000    0.000    0.182    0.182 C:\Python314\Lib\http\client.py:1386(getresponse)
+        1    0.000    0.000    0.182    0.182 C:\Python314\Lib\http\client.py:324(begin)
+        2    0.000    0.000    0.179    0.089 C:\Python314\Lib\socket.py:712(readinto)
+        1    0.000    0.000    0.179    0.179 C:\Python314\Lib\http\client.py:291(_read_status)
+       24    0.000    0.000    0.179    0.007 {method 'readline' of '_io.BufferedReader' objects}
+        2    0.000    0.000    0.179    0.089 C:\Python314\Lib\ssl.py:1289(recv_into)
+        2    0.000    0.000    0.179    0.089 C:\Python314\Lib\ssl.py:1129(read)
+        2    0.179    0.089    0.179    0.089 {method 'read' of '_ssl._SSLSocket' objects}
+        1    0.161    0.161    0.161    0.161 {built-in method show}
+        1    0.000    0.000    0.099    0.099 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\connection.py:198(_new_conn)
+        1    0.000    0.000    0.099    0.099 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\util\connection.py:27(create_connection)
+        1    0.068    0.068    0.088    0.088 C:\projects\tkinter\youtube_download\main.py:330(init_downloader_view)
+        1    0.000    0.000    0.068    0.068 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\util\ssl_.py:511(_ssl_wrap_socket_impl)
+        1    0.000    0.000    0.068    0.068 C:\Python314\Lib\ssl.py:449(wrap_socket)
+        1    0.000    0.000    0.068    0.068 C:\Python314\Lib\ssl.py:990(_create)
+        1    0.000    0.000    0.067    0.067 C:\Python314\Lib\ssl.py:1365(do_handshake)
+        1    0.067    0.067    0.067    0.067 {method 'do_handshake' of '_ssl._SSLSocket' objects}
+        1    0.000    0.000    0.061    0.061 C:\Python314\Lib\socket.py:966(getaddrinfo)
+        1    0.061    0.061    0.061    0.061 {built-in method _socket.getaddrinfo}
+        1    0.037    0.037    0.037    0.037 {method 'connect' of '_socket.socket' objects}
+        1    0.000    0.000    0.036    0.036 C:\projects\tkinter\youtube_download\profile_startup.py:20(<lambda>)
+        1    0.036    0.036    0.036    0.036 {built-in method quit}
+   363/61    0.025    0.000    0.034    0.001 {built-in method __new__ of type object at 0x00007FFDBC346D90}
+       57    0.000    0.000    0.027    0.000 C:\Python314\Lib\enum.py:676(__call__)
+       35    0.001    0.000    0.026    0.001 C:\Python314\Lib\enum.py:823(_create_)
+        1    0.000    0.000    0.025    0.025 C:\projects\tkinter\youtube_download\venv\Lib\site-packages\urllib3\util\ssl_.py:225(create_urllib3_context)
+        1    0.000    0.000    0.023    0.023 C:\Python314\Lib\ssl.py:430(__new__)
+        1    0.019    0.019    0.019    0.019 {built-in method setIcon}
+       35    0.002    0.000    0.017    0.000 C:\Python314\Lib\enum.py:479(__new__)
+       13    0.010    0.001    0.010    0.001 {built-in method setStyleSheet}
+      302    0.004    0.000    0.010    0.000 C:\Python314\Lib\enum.py:238(__set_name__)
+        1    0.000    0.000    0.007    0.007 C:\Python314\Lib\logging\__init__.py:1510(info)
+      407    0.003    0.000    0.006    0.000 C:\Python314\Lib\enum.py:341(__setitem__)
+
+

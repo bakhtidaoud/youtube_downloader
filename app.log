@@ -1,0 +1,65 @@
+2026-02-18 13:29:26,117 - UltraTube - INFO - Checking for updates...
+2026-02-18 13:30:11,129 - UltraTube - INFO - Checking for updates...
+2026-02-18 13:41:46,948 - UltraTube - INFO - Checking for updates...
+2026-02-18 17:07:21,059 - UltraTube - INFO - Checking for updates...
+2026-02-18 17:07:39,867 - UltraTube - INFO - Lazy loading Subscription Tab...
+2026-02-18 17:07:39,879 - UltraTube - INFO - Lazy loading Embedded Browser...
+2026-02-18 17:08:18,327 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "c:\projects\tkinter\youtube_download\src\subscription_tab.py", line 208, in add_subscription
+    info = downloader.get_video_info(url, **settings)
+TypeError: get_video_info() got an unexpected keyword argument 'allow_unplayable'
+
+2026-02-18 17:09:14,594 - UltraTube - INFO - Checking for updates...
+2026-02-18 17:09:17,029 - UltraTube - INFO - Lazy loading Subscription Tab...
+2026-02-18 17:09:17,043 - UltraTube - INFO - Lazy loading Embedded Browser...
+2026-02-18 17:09:24,828 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\src\subscription_tab.py", line 208, in add_subscription
+    info = downloader.get_video_info(url, **settings)
+TypeError: get_video_info() got an unexpected keyword argument 'allow_unplayable'
+
+2026-02-18 17:09:37,567 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\src\subscription_tab.py", line 208, in add_subscription
+    info = downloader.get_video_info(url, **settings)
+TypeError: get_video_info() got an unexpected keyword argument 'allow_unplayable'
+
+2026-02-18 17:26:29,909 - UltraTube - INFO - Checking for updates...
+2026-02-18 17:26:40,471 - UltraTube - INFO - Lazy loading Embedded Browser...
+2026-02-18 17:26:52,450 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\src\browser_tab.py", line 96, in update_address_bar
+    def update_address_bar(self, q):
+    
+KeyboardInterrupt
+
+2026-02-18 17:28:09,958 - UltraTube - INFO - Checking for updates...
+2026-02-18 17:28:22,398 - UltraTube - INFO - Lazy loading Subscription Tab...
+2026-02-18 17:28:22,431 - UltraTube - INFO - Lazy loading Embedded Browser...
+2026-02-18 17:29:09,367 - UltraTube.Downloader - INFO - Using cached metadata for: https://www.youtube.com/watch?v=lRercKJaAes&list=PLw6Y5u47CYq47oDw63bMqkq06fjuoK_GJ
+2026-02-18 17:32:47,829 - UltraTube - INFO - Checking for updates...
+2026-02-18 17:33:13,637 - UltraTube - INFO - Queued download for URL: https://www.youtube.com/watch?v=b9gs2Q3vGq4 with format: Best Available
+2026-02-18 17:33:14,068 - UltraTube.Downloader - INFO - Starting download: https://www.youtube.com/watch?v=b9gs2Q3vGq4
+2026-02-18 17:33:29,376 - UltraTube.Downloader - INFO - Finished download: https://www.youtube.com/watch?v=b9gs2Q3vGq4
+2026-02-18 17:34:07,043 - UltraTube - INFO - Queued download for URL: https://www.youtube.com/watch?v=lRercKJaAes&list=PLw6Y5u47CYq47oDw63bMqkq06fjuoK_GJ with format: Best Available
+2026-02-18 17:34:07,155 - UltraTube.Downloader - INFO - Starting download: https://www.youtube.com/watch?v=lRercKJaAes&list=PLw6Y5u47CYq47oDw63bMqkq06fjuoK_GJ
+2026-02-18 17:34:46,332 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "c:\projects\tkinter\youtube_download\main.py", line 760, in show_settings
+    dialog = SettingsDialog(self.config_manager, self.colors, self)
+  File "c:\projects\tkinter\youtube_download\src\settings_dialog.py", line 105, in __init__
+    self.load_settings()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "c:\projects\tkinter\youtube_download\src\settings_dialog.py", line 206, in load_settings
+    set_combo(self.browser_cookies, config.browser_cookies)
+              ^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SettingsDialog' object has no attribute 'browser_cookies'
+
+2026-02-18 18:23:22,909 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 714, in analyze_new_url
+    self.meta_worker = MetadataWorker(url, settings)
+                       ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+TypeError: MetadataWorker.__init__() takes 2 positional arguments but 3 were given
+

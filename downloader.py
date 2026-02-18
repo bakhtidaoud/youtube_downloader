@@ -6,6 +6,8 @@ import yt_dlp
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger("UltraTube.Downloader")
+_METADATA_CACHE = {}
+
 try:
     import browser_cookie3
 except ImportError:
@@ -75,14 +77,20 @@ def is_valid_url(url):
         r'(?:/?|[/?]\S+)$', re.IGNORECASE)
     return re.match(regex, url) is not None
 
-def get_video_info(url, cookie_file=None, browser=None, proxy=None, internal_browser=False):
+def get_video_info(url, cookie_file=None, browser=None, proxy=None, internal_browser=False, **kwargs):
     """Fetch metadata, supports cookies for private videos and proxies."""
+    # 1. Simple Cache Check
+    if url in _METADATA_CACHE:
+        logger.info(f"Using cached metadata for: {url}")
+        return _METADATA_CACHE[url]
+
     ydl_opts = {
         'quiet': True, 
         'no_warnings': True,
         'extract_flat': 'in_playlist',
         'socket_timeout': 30,  # 30 seconds timeout
         'retries': 10,        # Retry up to 10 times
+        'allow_unplayable_formats': kwargs.get('allow_unplayable', False),
     }
     
     if internal_browser:
@@ -100,7 +108,9 @@ def get_video_info(url, cookie_file=None, browser=None, proxy=None, internal_bro
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(url, download=False)
+            res = ydl.extract_info(url, download=False)
+            _METADATA_CACHE[url] = res
+            return res
     except Exception as e:
         logger.error(f"Error fetching info for {url}: {e}")
         return None
@@ -202,11 +212,11 @@ def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, 
     except Exception as e:
         logger.error(f"Download failed for {url}: {e}")
 
-def run_multi_download(urls, max_workers=3, sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None, internal_browser=False, allow_unplayable=False, cdm_path=None):
+def run_multi_download(urls, max_workers=3, progress_callback=None, **kwargs):
     """Run multiple concurrent downloads with shared session settings."""
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for url in urls:
-            executor.submit(download_item, url, None, 'downloads', sub_lang, write_thumbnail, progress_callback, cookie_file, browser, proxy, internal_browser, allow_unplayable, cdm_path)
+            executor.submit(download_item, url, progress_callback=progress_callback, **kwargs)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
