@@ -43,7 +43,7 @@ def exception_hook(exctype, value, tb):
     sys.exit(1)
 
 sys.excepthook = exception_hook
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, QThread, pyqtSlot, QPropertyAnimation, QEasingCurve, QRunnable, QThreadPool, QObject, QTimer, QTime, pyqtProperty
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QThread, pyqtSlot, QPropertyAnimation, QEasingCurve, QRunnable, QThreadPool, QObject, QTimer, QTime, pyqtProperty, QPointF
 from PyQt6.QtGui import QFont, QIcon, QPainter, QPen, QColor, QConicalGradient, QPixmap
 
 import downloader
@@ -170,7 +170,7 @@ class CircularProgress(QWidget):
         painter.drawEllipse(rect)
         
         # Progress Arc
-        grad = QConicalGradient(rect.center(), 90)
+        grad = QConicalGradient(QPointF(rect.center()), 90)
         grad.setColorAt(0, QColor(accent))
         grad.setColorAt(1, QColor(self.colors['accent_light']))
         

@@ -110,3 +110,122 @@ KeyboardInterrupt
 
 2026-02-18 22:33:48,779 - UltraTube - INFO - Checking for updates...
 2026-02-18 22:35:45,825 - UltraTube - INFO - Lazy loading Embedded Browser...
+2026-02-18 22:40:03,544 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:40:23,407 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:40:34,064 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:40:47,677 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:40:53,502 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:40:54,418 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:40:55,036 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:40:55,388 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:40:55,780 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:40:56,205 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:40:57,380 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:41:18,021 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 173, in paintEvent
+    grad = QConicalGradient(rect.center(), 90)
+TypeError: arguments did not match any overloaded call:
+  QConicalGradient(): too many arguments
+  QConicalGradient(center: QPointF, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(cx: float, cy: float, startAngle: float): argument 1 has unexpected type 'QPoint'
+  QConicalGradient(a0: QConicalGradient): argument 1 has unexpected type 'QPoint'
+
+2026-02-18 22:43:22,374 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:43:33,820 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 807, in analyze_new_url
+    def analyze_new_url(self):
+    
+KeyboardInterrupt
+
