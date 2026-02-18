@@ -11,6 +11,13 @@ class AppConfig:
     dark_mode: bool = True
     auto_update_ytdlp: bool = True
     ffmpeg_path: Optional[str] = None
+    max_concurrent: int = 3
+    video_codec: str = "h264"
+    audio_codec: str = "mp3"
+    socket_timeout: int = 30
+    cookies_file: Optional[str] = None
+    archive_file: str = "archive.txt"
+    browser_cookies: str = "None"
 
 class ConfigManager:
     def __init__(self, config_file: str = "config.json"):
