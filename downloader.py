@@ -58,7 +58,7 @@ def format_bytes(size):
         n += 1
     return f"{size:.2f}{power_labels[n]}B"
 
-def get_video_info(url, cookie_file=None, browser=None, proxy=None):
+def get_video_info(url, cookie_file=None, browser=None, proxy=None, internal_browser=False):
     """Fetch metadata, supports cookies for private videos and proxies."""
     ydl_opts = {
         'quiet': True, 
@@ -68,7 +68,12 @@ def get_video_info(url, cookie_file=None, browser=None, proxy=None):
         'retries': 10,        # Retry up to 10 times
     }
     
-    if cookie_file:
+    if internal_browser:
+        # Point to our embedded browser's cookie storage
+        cookie_path = os.path.abspath(os.path.join(os.getcwd(), "browser_data", "Cookies"))
+        if os.path.exists(cookie_path):
+            ydl_opts['cookiefile'] = cookie_path
+    elif cookie_file:
         ydl_opts['cookiefile'] = cookie_file
     elif browser:
         ydl_opts['cookiesfrombrowser'] = (browser,)
@@ -83,7 +88,7 @@ def get_video_info(url, cookie_file=None, browser=None, proxy=None):
         print(f"❌ Error fetching info: {e}")
         return None
 
-def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None):
+def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None, internal_browser=False):
     """Worker function with full support for cookies, assets, and proxies."""
     selected_format = format_id if format_id else 'bestvideo+bestaudio/best'
     if format_id and not ('+' in format_id or '/' in format_id):
@@ -105,7 +110,11 @@ def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, 
         'fragment_retries': 15,
     }
     
-    if cookie_file:
+    if internal_browser:
+        cookie_path = os.path.abspath(os.path.join(os.getcwd(), "browser_data", "Cookies"))
+        if os.path.exists(cookie_path):
+            ydl_opts['cookiefile'] = cookie_path
+    elif cookie_file:
         ydl_opts['cookiefile'] = cookie_file
     elif browser:
         ydl_opts['cookiesfrombrowser'] = (browser,)
@@ -132,11 +141,11 @@ def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, 
     except Exception as e:
         print(f"\n❌ Download failed: {e}")
 
-def run_multi_download(urls, max_workers=3, sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None):
+def run_multi_download(urls, max_workers=3, sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None, internal_browser=False):
     """Run multiple concurrent downloads with shared session settings."""
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for url in urls:
-            executor.submit(download_item, url, None, 'downloads', sub_lang, write_thumbnail, progress_callback, cookie_file, browser, proxy)
+            executor.submit(download_item, url, None, 'downloads', sub_lang, write_thumbnail, progress_callback, cookie_file, browser, proxy, internal_browser)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

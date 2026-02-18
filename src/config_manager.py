@@ -18,6 +18,11 @@ class AppConfig:
     cookies_file: Optional[str] = None
     archive_file: str = "archive.txt"
     browser_cookies: str = "None"
+    use_internal_browser: bool = False
+    smart_mode: bool = False
+    last_format: str = "Best (Auto)"
+    last_quality: str = "Maximum Quality"
+    subscriptions: list = field(default_factory=list)
 
 class ConfigManager:
     def __init__(self, config_file: str = "config.json"):

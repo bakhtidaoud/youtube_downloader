@@ -87,6 +87,10 @@ class SettingsDialog(QDialog):
         self.browser_cookies = QComboBox()
         self.browser_cookies.addItems(["None", "chrome", "firefox", "edge", "opera", "safari"])
         adv_layout.addRow("Extract Browser Cookies:", self.browser_cookies)
+        
+        self.use_internal_browser = QCheckBox("Use Internal Browser Cookies")
+        self.use_internal_browser.setToolTip("Uses cookies from the app's built-in browser tab.")
+        adv_layout.addRow(self.use_internal_browser)
 
         # Add tabs
         self.tabs.addTab(self.tab_general, "General")
@@ -132,6 +136,7 @@ class SettingsDialog(QDialog):
         self.socket_timeout.setValue(config.socket_timeout)
         self.cookies_path.setText(config.cookies_file if config.cookies_file else "")
         self.archive_path.setText(config.archive_file)
+        self.use_internal_browser.setChecked(config.use_internal_browser)
 
     def save_settings(self):
         # Update config manager config object
@@ -146,6 +151,7 @@ class SettingsDialog(QDialog):
             socket_timeout=self.socket_timeout.value(),
             cookies_file=self.cookies_path.text() if self.cookies_path.text() else None,
             archive_file=self.archive_path.text(),
-            browser_cookies=self.browser_cookies.currentText()
+            browser_cookies=self.browser_cookies.currentText(),
+            use_internal_browser=self.use_internal_browser.isChecked()
         )
         self.accept()
