@@ -1,13 +1,44 @@
 import sys
 import os
 import subprocess
+import logging
+import logging.handlers
+import traceback
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, 
     QPushButton, QLabel, QLineEdit, QComboBox, QListWidget, 
     QListWidgetItem, QFrame, QProgressBar, QStackedWidget,
-    QSystemTrayIcon, QGraphicsOpacityEffect
+    QSystemTrayIcon, QGraphicsOpacityEffect, QMessageBox
 )
+
+# 1. Setup Logging
+log_file = "app.log"
+logger = logging.getLogger("UltraTube")
+logger.setLevel(logging.DEBUG)
+handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=1024*1024*5, backupCount=3)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+# 2. Global Exception Handler
+def exception_hook(exctype, value, tb):
+    """Global exception handler to show error dialogs and log crashes."""
+    error_msg = "".join(traceback.format_exception(exctype, value, tb))
+    logger.critical(f"Unhandled exception:\n{error_msg}")
+    
+    # Show user friendly dialog
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Icon.Critical)
+    msg.setText("Ooops! Something went wrong.")
+    msg.setInformativeText("An unexpected error occurred. A report has been saved to the log file.")
+    msg.setDetailedText(error_msg)
+    msg.setWindowTitle("Fatal Error")
+    msg.exec()
+    sys.exit(1)
+
+sys.excepthook = exception_hook
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, QThread, pyqtSlot, QPropertyAnimation, QEasingCurve, QRunnable, QThreadPool, QObject, QTimer, QTime
+from PyQt6.QtGui import QFont, QIcon
 
 import downloader
 from downloader import DownloadProgress
@@ -206,6 +237,13 @@ class VideoDownloaderApp(QMainWindow):
         self.sidebar_layout.addWidget(self.btn_nav_sub)
         self.sidebar_layout.addStretch()
         
+        self.btn_report_bug = QPushButton("🐞")
+        self.btn_report_bug.setFixedSize(60, 60)
+        self.btn_report_bug.setStyleSheet(f"border: none; font-size: 20px; color: {self.colors['text']};")
+        self.btn_report_bug.setToolTip("Report a Bug / Copy Logs")
+        self.btn_report_bug.clicked.connect(self.report_bug)
+        self.sidebar_layout.addWidget(self.btn_report_bug)
+        
         self.main_layout.addWidget(self.sidebar)
 
         # Stack
@@ -401,6 +439,37 @@ class VideoDownloaderApp(QMainWindow):
             widget.status_label.setText(f"Scheduled for {config.scheduler_start}")
             
         self.url_input.clear()
+        logger.info(f"Queued download for URL: {url} with format: {engine_format}")
+
+    def report_bug(self):
+        """Read logs and provide a way for the user to report issues."""
+        try:
+            with open("app.log", "r") as f:
+                logs = f.read()
+            
+            # Show a snippet and offer to copy
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Report a Bug")
+            msg.setText("We're sorry you're having issues!")
+            msg.setInformativeText("Would you like to copy the last 50 lines of the application log to your clipboard to send to developers?")
+            
+            last_lines = "\n".join(logs.splitlines()[-50:])
+            msg.setDetailedText(last_lines)
+            
+            copy_btn = msg.addButton("Copy Logs", QMessageBox.ButtonRole.ActionRole)
+            msg.addButton(QMessageBox.StandardButton.Close)
+            
+            msg.exec()
+            
+            if msg.clickedButton() == copy_btn:
+                clipboard = QApplication.clipboard()
+                clipboard.setText(logs)
+                logger.info("User copied logs to clipboard via report_bug.")
+                QMessageBox.information(self, "Success", "Logs have been copied to your clipboard!")
+                
+        except Exception as e:
+            logger.error(f"Failed to read log file: {e}")
+            QMessageBox.warning(self, "Error", "Could not read log file.")
 
     def init_smart_mode(self):
         config = self.config_manager.config

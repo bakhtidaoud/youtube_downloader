@@ -1,8 +1,11 @@
 import sys
 import os
 import re
+import logging
 import yt_dlp
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger("UltraTube.Downloader")
 try:
     import browser_cookie3
 except ImportError:
@@ -99,7 +102,7 @@ def get_video_info(url, cookie_file=None, browser=None, proxy=None, internal_bro
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             return ydl.extract_info(url, download=False)
     except Exception as e:
-        print(f"❌ Error fetching info: {e}")
+        logger.error(f"Error fetching info for {url}: {e}")
         return None
 
 def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None, internal_browser=False, allow_unplayable=False, cdm_path=None):
@@ -193,9 +196,11 @@ def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, 
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            logger.info(f"Starting download: {url}")
             ydl.download([url])
+            logger.info(f"Finished download: {url}")
     except Exception as e:
-        print(f"\n❌ Download failed: {e}")
+        logger.error(f"Download failed for {url}: {e}")
 
 def run_multi_download(urls, max_workers=3, sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None, internal_browser=False, allow_unplayable=False, cdm_path=None):
     """Run multiple concurrent downloads with shared session settings."""
