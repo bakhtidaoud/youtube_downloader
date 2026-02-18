@@ -1,0 +1,5 @@
+yt-dlp
+ffmpeg-python
+PyQt6
+requests
+pyinstaller
