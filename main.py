@@ -135,23 +135,28 @@ class CircularProgress(QWidget):
         super().__init__()
         self.setFixedSize(size, size)
         self.colors = colors
-        self.value = 0
+        self._value = 0
         self._target = 0
         self.anim = QPropertyAnimation(self, b"progress_val")
         self.anim.setDuration(600)
         self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
     @pyqtProperty(float)
-    def progress_val(self): return self.value
+    def progress_val(self): return self._value
     @progress_val.setter
     def progress_val(self, v):
-        self.value = v
+        self._value = v
         self.update()
 
+    def value(self):
+        return int(self._value)
+
     def set_value(self, val):
-        self._target = val
+        target = float(val)
+        if abs(target - self._target) < 0.1: return
+        self._target = target
         self.anim.stop()
-        self.anim.setEndValue(float(val))
+        self.anim.setEndValue(target)
         self.anim.start()
 
     def paintEvent(self, event):
@@ -177,13 +182,13 @@ class CircularProgress(QWidget):
         pen.setBrush(grad)
         painter.setPen(pen)
         
-        span = int(-self.value * 3.6 * 16)
+        span = int(-self._value * 3.6 * 16)
         painter.drawArc(rect, 90 * 16, span)
         
         # Percentage Text
         painter.setPen(QColor(self.colors['text']))
         painter.setFont(QFont("Inter", 10, QFont.Weight.Bold))
-        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, f"{int(self.value)}%")
+        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, f"{int(self._value)}%")
 
 class ImageLoader(QThread):
     finished = pyqtSignal(bytes)
@@ -192,7 +197,8 @@ class ImageLoader(QThread):
         self.url = url
     def run(self):
         try:
-            resp = requests.get(self.url, timeout=10)
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+            resp = requests.get(self.url, timeout=10, headers=headers)
             if resp.status_code == 200:
                 self.finished.emit(resp.content)
         except: pass
@@ -211,9 +217,9 @@ class ModernDownloadItem(QFrame):
         self.init_ui()
         
         if self.thumbnail_url:
-            self.loader = ImageLoader(self.thumbnail_url)
-            self.loader.finished.connect(self.set_thumbnail)
-            self.loader.start()
+            self._thumb_loader = ImageLoader(self.thumbnail_url)
+            self._thumb_loader.finished.connect(self.set_thumbnail)
+            self._thumb_loader.start()
             
         self.pulse_timer = QTimer(self)
         self.pulse_timer.timeout.connect(self.update_pulse)
@@ -222,9 +228,12 @@ class ModernDownloadItem(QFrame):
 
     def set_thumbnail(self, data):
         pix = QPixmap()
-        pix.loadFromData(data)
-        scaled = pix.scaled(140, 80, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
-        self.thumb_label.setPixmap(scaled)
+        if pix.loadFromData(data):
+            scaled = pix.scaled(140, 80, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
+            self.thumb_label.setPixmap(scaled)
+        else:
+            self.thumb_label.setText("🎬")
+            self.thumb_label.setStyleSheet(f"font-size: 30px; color: {self.colors['sub_text']};")
 
     def update_pulse(self):
         """Creates a professional 'breathing' effect during metadata fetch."""
@@ -305,6 +314,27 @@ class ModernDownloadItem(QFrame):
         
         self.stats_label = QLabel("Ready for extraction")
         self.stats_label.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {self.colors['accent']};")
+        
+        self.duration_label = QLabel("--:--")
+        self.duration_label.setStyleSheet(f"""
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 800;
+        """)
+        
+        # Position duration over thumbnail
+        duration_layout = QVBoxLayout()
+        duration_layout.addStretch()
+        h_dur = QHBoxLayout()
+        h_dur.addStretch()
+        h_dur.addWidget(self.duration_label)
+        duration_layout.addLayout(h_dur)
+        self.thumb_label.setLayout(duration_layout)
+        
+        info_layout.addWidget(self.status_label)
         info_layout.addWidget(self.stats_label)
         layout.addLayout(info_layout, 1)
 
@@ -350,7 +380,7 @@ class ModernDownloadItem(QFrame):
         if prog.title and prog.title != "Unknown":
             self.title_label.setText(prog.title if len(prog.title) < 50 else prog.title[:47] + "...")
         
-        self.pbar.set_value(int(prog.percentage))
+        self.pbar.set_value(prog.percentage)
         self.stats_label.setText(f"{prog.speed} • {prog.eta}")
         
         if prog.status == 'downloading':
@@ -614,6 +644,12 @@ class VideoDownloaderApp(QMainWindow):
         empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(empty_desc)
         
+        # Subtle Sparkle Effect (Animated Glow)
+        self.sparkle_label = QLabel("✨ System Optimized & Ready")
+        self.sparkle_label.setStyleSheet(f"color: {self.colors['accent']}; font-size: 11px; font-weight: 800; opacity: 0.6;")
+        self.sparkle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(self.sparkle_label)
+        
         self.stack_dl.addWidget(self.empty_state)
         self.stack_dl.addWidget(self.downloads_list)
         dl_layout.addWidget(self.stack_dl)
@@ -845,11 +881,29 @@ class VideoDownloaderApp(QMainWindow):
             if not video_url: continue
             
             title = entry.get('title') or video_url
-            thumb = entry.get('thumbnail')
             
+            # Robust thumbnail extraction
+            thumb = entry.get('thumbnail')
+            if not thumb and entry.get('thumbnails'):
+                # Get the last (often highest resolution) thumbnail
+                thumb = entry.get('thumbnails')[-1].get('url')
+            
+            duration = entry.get('duration')
+            
+            # Format duration
+            duration_text = "--:--"
+            if duration:
+                mins, secs = divmod(int(duration), 60)
+                hours, mins = divmod(mins, 60)
+                if hours > 0:
+                    duration_text = f"{hours:02d}:{mins:02d}:{secs:02d}"
+                else:
+                    duration_text = f"{mins:02d}:{secs:02d}"
+
             item = QListWidgetItem(self.downloads_list)
             widget = ModernDownloadItem(video_url, self.colors, thumbnail_url=thumb)
             widget.title_label.setText(title if len(title) < 50 else title[:47] + "...")
+            widget.duration_label.setText(duration_text)
             widget.status_label.setText("Ready for extraction")
             widget.finished_successfully.connect(self.show_notification)
             item.setSizeHint(widget.sizeHint())
@@ -958,9 +1012,42 @@ class VideoDownloaderApp(QMainWindow):
             # Refresh if user changed settings
             self.update_thread_limit()
 
+    def closeEvent(self, event):
+        """Graceful shutdown for all background processes."""
+        logger.info("Shutting down UltraTube Premium...")
+        self.sched_timer.stop()
+        
+        # Stop internal browser if active
+        if self.browser_view:
+            self.browser_view.deleteLater()
+            
+        # Stop subscription worker if active
+        if self.subscription_view:
+            if hasattr(self.subscription_view, 'worker'):
+                self.subscription_view.worker.stop()
+                self.subscription_view.worker.wait()
+        
+        # Wait for thread pool (optional, but safer)
+        if self.thread_pool.activeThreadCount() > 0:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Icon.Question)
+            msg.setText("Active Downloads")
+            msg.setInformativeText("There are active downloads in progress. Exit anyway?")
+            msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if msg.exec() == QMessageBox.StandardButton.No:
+                event.ignore()
+                return
+        
+        self.tray_icon.hide()
+        event.accept()
+
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-    window = VideoDownloaderApp()
-    window.show()
-    sys.exit(app.exec())
+    try:
+        app = QApplication(sys.argv)
+        app.setStyle("Fusion")
+        window = VideoDownloaderApp()
+        window.show()
+        sys.exit(app.exec())
+    except KeyboardInterrupt:
+        print("\n[!] Safe shutdown initiated by user.")
+        sys.exit(0)

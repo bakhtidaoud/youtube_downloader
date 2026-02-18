@@ -229,3 +229,48 @@ Traceback (most recent call last):
     
 KeyboardInterrupt
 
+2026-02-18 22:48:32,597 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:50:49,479 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:51:01,836 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 799, in process_scheduled_queue
+    def process_scheduled_queue(self):
+    
+KeyboardInterrupt
+
+2026-02-18 22:54:11,198 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:55:17,989 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "c:\projects\tkinter\youtube_download\main.py", line 892, in start_batch_download
+    if widget.checkbox.isChecked() and widget.pbar.value() == 0:
+                                       ~~~~~~~~~~~~~~~~~^^
+TypeError: 'int' object is not callable
+
+2026-02-18 22:57:01,383 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:57:17,536 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 808, in process_scheduled_queue
+    def process_scheduled_queue(self):
+    
+KeyboardInterrupt
+
+2026-02-18 22:59:56,425 - UltraTube - INFO - Checking for updates...
+2026-02-18 23:00:32,607 - UltraTube - INFO - Started batch download for 1 items.
+2026-02-18 23:00:32,787 - UltraTube.Downloader - INFO - Starting download: https://www.youtube.com/watch?v=CE_FSxAzWs4
+2026-02-18 23:00:36,816 - UltraTube - INFO - Started batch download for 1 items.
+2026-02-18 23:00:36,972 - UltraTube.Downloader - INFO - Starting download: https://www.youtube.com/watch?v=CE_FSxAzWs4
+2026-02-18 23:00:49,624 - UltraTube.Downloader - ERROR - Download failed for https://www.youtube.com/watch?v=CE_FSxAzWs4: [0;31mERROR:[0m Unable to rename file: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\PC\\Downloads\\Learn PHP 8 In Arabic 2022 - #103 - Session Edit And Practice.f137.mp4.part' -> 'C:\\Users\\PC\\Downloads\\Learn PHP 8 In Arabic 2022 - #103 - Session Edit And Practice.f137.mp4'. Giving up after 3 retries
+2026-02-18 23:01:00,983 - UltraTube.Downloader - INFO - Finished download: https://www.youtube.com/watch?v=CE_FSxAzWs4
+2026-02-18 23:01:54,611 - UltraTube - INFO - Shutting down UltraTube Premium...
+2026-02-18 23:04:13,400 - UltraTube - INFO - Checking for updates...
+2026-02-18 23:04:27,028 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 826, in analyze_new_url
+    def analyze_new_url(self):
+    
+KeyboardInterrupt
+
+2026-02-18 23:07:19,319 - UltraTube - INFO - Checking for updates...
+2026-02-18 23:08:19,532 - UltraTube - INFO - Lazy loading Subscription Tab...
+2026-02-18 23:08:19,538 - UltraTube - INFO - Lazy loading Embedded Browser...
+2026-02-18 23:08:30,538 - UltraTube - INFO - Shutting down UltraTube Premium...

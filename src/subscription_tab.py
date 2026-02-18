@@ -51,23 +51,12 @@ class SubscriptionWorker(QThread):
                 # Fetch info in flat mode to see entries without downloading
                 info = downloader.get_video_info(url, **self.settings)
                 if info and 'entries' in info:
-                    new_count = 0
-                    # For each entry, check if it's already in archive.txt
-                    # yt-dlp's download_archive handles this, but we want to report count
-                    # We'll rely on yt-dlp to skip, but we trigger a download attempt
-                    # to let the archive system handle the 'already downloaded' check.
-                    
-                    # Instead of manual check, we just run the downloader.
-                    # yt-dlp with --download-archive will skip existing ones.
-                    
                     # We trigger run_multi_download for the channel/playlist
                     downloader.run_multi_download(
                         [url], 
                         **self.settings
                     )
-                    # Note: Reporting actual "new" count is tricky without reading archive.txt
-                    # For now, we emit that we started checking.
-                    self.check_finished.emit(url, 0) # Simplification
+                    self.check_finished.emit(url, 0)
             
             # Sleep for 1 hour (default)
             for _ in range(3600):
@@ -76,6 +65,25 @@ class SubscriptionWorker(QThread):
 
     def stop(self):
         self.is_running = False
+
+class AddSubscriptionWorker(QThread):
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+    
+    def __init__(self, url, settings):
+        super().__init__()
+        self.url = url
+        self.settings = settings
+        
+    def run(self):
+        try:
+            info = downloader.get_video_info(self.url, **self.settings)
+            if info:
+                self.finished.emit(info)
+            else:
+                self.error.emit("Could not fetch channel info.")
+        except Exception as e:
+            self.error.emit(str(e))
 
 class SubscriptionItem(QFrame):
     remove_requested = pyqtSignal(str)
@@ -165,17 +173,16 @@ class SubscriptionTab(QWidget):
         """)
         add_layout.addWidget(self.url_input)
 
-        self.btn_add = QPushButton("Add Subscription")
-        self.btn_add.setFixedHeight(50)
-        self.btn_add.setFixedWidth(180)
+        self.btn_add = QPushButton("Add Channel")
+        self.btn_add.setFixedSize(160, 50)
         self.btn_add.setStyleSheet(f"""
             QPushButton {{
                 background-color: {self.colors['accent']};
                 color: white;
                 border: none;
                 border-radius: 12px;
-                font-weight: 700;
-                font-size: 14px;
+                font-weight: 800;
+                font-size: 15px;
             }}
             QPushButton:hover {{ background-color: {self.colors['accent_light']}; }}
         """)
@@ -210,7 +217,9 @@ class SubscriptionTab(QWidget):
         if any(s['url'] == url for s in self.config_manager.config.subscriptions):
             return
 
-        # Fetch title
+        self.btn_add.setEnabled(False)
+        self.btn_add.setText("Wait...")
+
         config = self.config_manager.config
         settings = {
             'proxy': config.proxy,
@@ -219,9 +228,23 @@ class SubscriptionTab(QWidget):
             'allow_unplayable': config.experimental_drm,
             'cdm_path': config.cdm_path
         }
-        info = downloader.get_video_info(url, **settings)
-        title = info.get('title', url) if info else url
+        
+        self.add_worker = AddSubscriptionWorker(url, settings)
+        self.add_worker.finished.connect(self.on_sub_added)
+        self.add_worker.error.connect(self.on_sub_error)
+        self.add_worker.start()
 
+    def on_sub_error(self, err):
+        self.btn_add.setEnabled(True)
+        self.btn_add.setText("Add Channel")
+        print(f"Sub error: {err}")
+
+    def on_sub_added(self, info):
+        self.btn_add.setEnabled(True)
+        self.btn_add.setText("Add Channel")
+        url = self.url_input.text().strip()
+        title = info.get('title', url)
+        
         new_sub = {
             'url': url,
             'title': title,
