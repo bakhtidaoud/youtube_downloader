@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, 
     QLabel, QListWidget, QListWidgetItem, QFrame
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QTimer
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QTimer, QTime
 import downloader
 
 class SubscriptionWorker(QThread):
@@ -12,15 +12,36 @@ class SubscriptionWorker(QThread):
     new_video_found = pyqtSignal(str, str) # url, sub_title
     check_finished = pyqtSignal(str, int)  # sub_url, new_count
 
-    def __init__(self, subscriptions, settings):
+    def __init__(self, config_manager, settings):
         super().__init__()
-        self.subscriptions = subscriptions
+        self.config_manager = config_manager
         self.settings = settings
         self.is_running = True
 
+    def is_within_schedule(self):
+        config = self.config_manager.config
+        if not config.scheduler_enabled:
+            return True
+        
+        now = QTime.currentTime()
+        start = QTime.fromString(config.scheduler_start, "HH:mm")
+        end = QTime.fromString(config.scheduler_end, "HH:mm")
+        
+        if start < end:
+            return start <= now <= end
+        else: # Overnight
+            return now >= start or now <= end
+
     def run(self):
         while self.is_running:
-            for sub in self.subscriptions:
+            # 1. Check Schedule
+            if not self.is_within_schedule():
+                print("Outside of schedule, waiting 1 minute...")
+                time.sleep(60)
+                continue
+
+            # 2. Process subs
+            for sub in self.config_manager.config.subscriptions:
                 if not sub.get('enabled', True):
                     continue
                 
@@ -180,7 +201,9 @@ class SubscriptionTab(QWidget):
         settings = {
             'proxy': config.proxy,
             'cookie_file': config.cookies_file,
-            'internal_browser': config.use_internal_browser
+            'internal_browser': config.use_internal_browser,
+            'allow_unplayable': config.experimental_drm,
+            'cdm_path': config.cdm_path
         }
         info = downloader.get_video_info(url, **settings)
         title = info.get('title', url) if info else url
@@ -210,9 +233,11 @@ class SubscriptionTab(QWidget):
             'download_dir': config.download_folder,
             'proxy': config.proxy,
             'cookie_file': config.cookies_file,
-            'internal_browser': config.use_internal_browser
+            'internal_browser': config.use_internal_browser,
+            'allow_unplayable': config.experimental_drm,
+            'cdm_path': config.cdm_path
         }
-        self.worker = SubscriptionWorker(config.subscriptions, settings)
+        self.worker = SubscriptionWorker(self.config_manager, settings)
         self.worker.check_finished.connect(self.update_last_check)
         self.worker.start()
 

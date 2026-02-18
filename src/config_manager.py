@@ -23,6 +23,11 @@ class AppConfig:
     last_format: str = "Best (Auto)"
     last_quality: str = "Maximum Quality"
     subscriptions: list = field(default_factory=list)
+    experimental_drm: bool = False
+    cdm_path: Optional[str] = None
+    scheduler_enabled: bool = False
+    scheduler_start: str = "02:00"
+    scheduler_end: str = "06:00"
 
 class ConfigManager:
     def __init__(self, config_file: str = "config.json"):

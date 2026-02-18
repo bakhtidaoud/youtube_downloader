@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 import yt_dlp
 from concurrent.futures import ThreadPoolExecutor
 try:
@@ -53,10 +54,23 @@ def format_bytes(size):
     power = 2**10
     n = 0
     power_labels = {0 : '', 1: 'K', 2: 'M', 3: 'G', 4: 'T'}
-    while size > power:
+    while size >= power:
         size /= power
         n += 1
     return f"{size:.2f}{power_labels[n]}B"
+
+def is_valid_url(url):
+    """Basic URL validation for video links."""
+    if not url: return False
+    # Simple regex for http/https URLs
+    regex = re.compile(
+        r'^(?:http|ftp)s?://' # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
+        r'localhost|' #localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
+        r'(?::\d+)?' # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+    return re.match(regex, url) is not None
 
 def get_video_info(url, cookie_file=None, browser=None, proxy=None, internal_browser=False):
     """Fetch metadata, supports cookies for private videos and proxies."""
@@ -88,11 +102,31 @@ def get_video_info(url, cookie_file=None, browser=None, proxy=None, internal_bro
         print(f"❌ Error fetching info: {e}")
         return None
 
-def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None, internal_browser=False):
-    """Worker function with full support for cookies, assets, and proxies."""
-    selected_format = format_id if format_id else 'bestvideo+bestaudio/best'
-    if format_id and not ('+' in format_id or '/' in format_id):
-        selected_format = f"{format_id}+bestaudio/best"
+def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None, internal_browser=False, allow_unplayable=False, cdm_path=None):
+    """Worker function with support for high-fidelity formats (8K, HDR, 360) and DRM."""
+    
+    # Advanced logic for quality selection based on format_id
+    # format_id can be a specific ID from yt-dlp OR a descriptive string from our UI
+    if format_id == "Best Available" or not format_id:
+        selected_format = 'bestvideo+bestaudio/best'
+    elif "8K" in format_id:
+        selected_format = 'bestvideo[height<=4320]+bestaudio/best'
+    elif "4K HDR" in format_id:
+        # Prefer VP9.2 which carries HDR metadata for YouTube
+        selected_format = 'bestvideo[height<=2160][vcodec^=vp9.2]+bestaudio/best'
+    elif "4K" in format_id:
+        selected_format = 'bestvideo[height<=2160]+bestaudio/best'
+    elif "1440p" in format_id:
+        selected_format = 'bestvideo[height<=1440]+bestaudio/best'
+    elif "1080p" in format_id:
+        selected_format = 'bestvideo[height<=1080]+bestaudio/best'
+    elif "720p" in format_id:
+        selected_format = 'bestvideo[height<=720]+bestaudio/best'
+    elif "480p" in format_id:
+        selected_format = 'bestvideo[height<=480]+bestaudio/best'
+    else:
+        # Fallback for specific format IDs (e.g. from a list)
+        selected_format = format_id if '+' in format_id or '/' in format_id else f"{format_id}+bestaudio/best"
 
     ydl_opts = {
         'format': selected_format,
@@ -106,10 +140,32 @@ def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, 
         'subtitleslangs': [sub_lang] if sub_lang and sub_lang != 'all' else ['all'],
         'postprocessors': [],
         'socket_timeout': 30,
-        'retries': 15,  # Slightly more retries for actual download
+        'retries': 15,
         'fragment_retries': 15,
+        'allow_unplayable_formats': allow_unplayable,
+        'writemetadata': True,
+        'xattrs': True,  # Help preserve metadata on supported filesystems
+        'prefer_ffmpeg': True,
     }
     
+    # Metadata preservation for 360 / VR and HDR
+    # yt-dlp preserves metadata during merging by default, but we can be explicit
+    ydl_opts['postprocessor_args'] = {
+        'ffmpeg': [
+            '-map_metadata', '0', # Copy metadata from first input
+            '-movflags', '+faststart' # Good for web delivery/VR players
+        ]
+    }
+    
+    if cdm_path:
+        # Experimental: Add Mp4Decrypt post-processor
+        # This requires the yt-dlp-mp4decrypt plugin to be installed
+        ydl_opts['postprocessors'].append({
+            'key': 'Mp4Decrypt',
+            'when': 'before_dl',
+            'devicepath': cdm_path,
+        })
+
     if internal_browser:
         cookie_path = os.path.abspath(os.path.join(os.getcwd(), "browser_data", "Cookies"))
         if os.path.exists(cookie_path):
@@ -141,11 +197,11 @@ def download_item(url, format_id=None, download_dir='downloads', sub_lang=None, 
     except Exception as e:
         print(f"\n❌ Download failed: {e}")
 
-def run_multi_download(urls, max_workers=3, sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None, internal_browser=False):
+def run_multi_download(urls, max_workers=3, sub_lang=None, write_thumbnail=False, progress_callback=None, cookie_file=None, browser=None, proxy=None, internal_browser=False, allow_unplayable=False, cdm_path=None):
     """Run multiple concurrent downloads with shared session settings."""
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for url in urls:
-            executor.submit(download_item, url, None, 'downloads', sub_lang, write_thumbnail, progress_callback, cookie_file, browser, proxy, internal_browser)
+            executor.submit(download_item, url, None, 'downloads', sub_lang, write_thumbnail, progress_callback, cookie_file, browser, proxy, internal_browser, allow_unplayable, cdm_path)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

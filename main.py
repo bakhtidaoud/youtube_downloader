@@ -7,8 +7,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QFrame, QProgressBar, QStackedWidget,
     QSystemTrayIcon, QGraphicsOpacityEffect
 )
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, QThread, pyqtSlot, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QThread, pyqtSlot, QPropertyAnimation, QEasingCurve, QRunnable, QThreadPool, QObject, QTimer, QTime
 
 import downloader
 from downloader import DownloadProgress
@@ -17,27 +16,35 @@ from src.settings_dialog import SettingsDialog
 from src.browser_tab import EmbeddedBrowser
 from src.subscription_tab import SubscriptionTab
 
-class DownloadWorker(QThread):
-    progress_updated = pyqtSignal(object)
+class DownloadSignals(QObject):
+    """Signals for the QRunnable worker."""
+    progress = pyqtSignal(object)
     finished = pyqtSignal(str)
+    error = pyqtSignal(str)
 
+class DownloadWorker(QRunnable):
+    """Worker runnable for simultaneous downloads."""
     def __init__(self, url, format_id=None, settings=None):
         super().__init__()
         self.url = url
         self.format_id = format_id
         self.settings = settings or {}
+        self.signals = DownloadSignals()
 
     def run(self):
         def internal_callback(prog: DownloadProgress):
-            self.progress_updated.emit(prog)
+            self.signals.progress.emit(prog)
 
-        downloader.download_item(
-            self.url, 
-            format_id=self.format_id,
-            progress_callback=internal_callback,
-            **self.settings
-        )
-        self.finished.emit("Complete")
+        try:
+            downloader.download_item(
+                self.url, 
+                format_id=self.format_id,
+                progress_callback=internal_callback,
+                **self.settings
+            )
+            self.signals.finished.emit("Complete")
+        except Exception as e:
+            self.signals.error.emit(str(e))
 
 class ModernDownloadItem(QFrame):
     remove_requested = pyqtSignal(object)
@@ -147,6 +154,16 @@ class VideoDownloaderApp(QMainWindow):
         self.setWindowTitle("UltraTube Premium")
         self.setMinimumSize(1000, 750)
         
+        # Thread Pool for Concurrent Downloads
+        self.thread_pool = QThreadPool()
+        self.update_thread_limit()
+        
+        # Scheduler State
+        self.pending_queue = []
+        self.sched_timer = QTimer(self)
+        self.sched_timer.timeout.connect(self.process_scheduled_queue)
+        self.sched_timer.start(10000) # Check every 10 seconds
+        
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setIcon(QIcon.fromTheme("download-main"))
         self.tray_icon.show()
@@ -241,7 +258,16 @@ class VideoDownloaderApp(QMainWindow):
         self.format_combo.addItems(["Best (Auto)", "MP4 Video", "MP3 Audio"])
         opt_row.addWidget(self.format_combo)
         self.quality_combo = QComboBox()
-        self.quality_combo.addItems(["Maximum Quality", "1080p", "720p"])
+        self.quality_combo.addItems([
+            "Best Available", 
+            "8K Ultra HD (4320p)", 
+            "4K HDR / 60fps", 
+            "4K Ultra HD (2160p)",
+            "2K Quad HD (1440p)",
+            "Full HD (1080p)", 
+            "HD (720p)", 
+            "SD (480p)"
+        ])
         opt_row.addWidget(self.quality_combo)
         opt_row.addStretch()
         self.download_btn = QPushButton("Start Download")
@@ -307,28 +333,83 @@ class VideoDownloaderApp(QMainWindow):
     def show_notification(self, title):
         self.tray_icon.showMessage("Download Finished", title, QSystemTrayIcon.MessageIcon.Information, 3000)
 
+    def is_within_schedule(self):
+        config = self.config_manager.config
+        if not config.scheduler_enabled:
+            return True
+        
+        now = QTime.currentTime()
+        start = QTime.fromString(config.scheduler_start, "HH:mm")
+        end = QTime.fromString(config.scheduler_end, "HH:mm")
+        
+        if start < end:
+            return start <= now <= end
+        else: # Overnight schedule (e.g. 22:00 to 06:00)
+            return now >= start or now <= end
+
+    def process_scheduled_queue(self):
+        if self.is_within_schedule() and self.pending_queue:
+            while self.pending_queue:
+                worker, widget = self.pending_queue.pop(0)
+                widget.status_label.setText("Starting scheduled download...")
+                self.thread_pool.start(worker)
+
     def start_new_download(self):
         url = self.url_input.text().strip()
         if not url: return
+
+        # 1. Get Selections
+        fmt_type = self.format_combo.currentText()
+        quality_str = self.quality_combo.currentText()
+
+        # Update Smart Mode if active
+        if self.config_manager.config.smart_mode:
+            self.config_manager.update(last_format=fmt_type, last_quality=quality_str)
+
+        # 2. Setup UI
         item = QListWidgetItem(self.downloads_list)
         widget = ModernDownloadItem(url, self.colors)
         widget.finished_successfully.connect(self.show_notification)
         item.setSizeHint(widget.sizeHint())
         self.downloads_list.addItem(item)
         self.downloads_list.setItemWidget(item, widget)
-        
+
+        # 3. Prepare Settings
         config = self.config_manager.config
         settings = {
-            'download_dir': config.download_folder, 'proxy': config.proxy,
-            'cookie_file': config.cookies_file, 'internal_browser': config.use_internal_browser
+            'download_dir': config.download_folder,
+            'proxy': config.proxy,
+            'cookie_file': config.cookies_file,
+            'browser': config.browser_cookies if config.browser_cookies != "None" else None,
+            'internal_browser': config.use_internal_browser,
+            'allow_unplayable': config.experimental_drm,
+            'cdm_path': config.cdm_path
         }
-        worker = DownloadWorker(url, settings=settings)
-        worker.progress_updated.connect(widget.update_progress)
-        worker.start()
+
+        # 4. Determine format_id for the engine
+        engine_format = "bestaudio/best" if fmt_type == "MP3 Audio" else quality_str
+
+        worker = DownloadWorker(url, format_id=engine_format, settings=settings)
+        worker.signals.progress.connect(widget.update_progress)
+        self.workers[url] = (worker, item)
+        
+        # 5. Check Schedule
+        if self.is_within_schedule():
+            self.thread_pool.start(worker)
+        else:
+            self.pending_queue.append((worker, widget))
+            widget.status_label.setText(f"Scheduled for {config.scheduler_start}")
+            
         self.url_input.clear()
 
     def init_smart_mode(self):
-        self.update_smart_ui(self.config_manager.config.smart_mode)
+        config = self.config_manager.config
+        self.update_smart_ui(config.smart_mode)
+        if config.smart_mode:
+            idx_fmt = self.format_combo.findText(config.last_format)
+            if idx_fmt >= 0: self.format_combo.setCurrentIndex(idx_fmt)
+            idx_q = self.quality_combo.findText(config.last_quality)
+            if idx_q >= 0: self.quality_combo.setCurrentIndex(idx_q)
 
     def toggle_smart_mode(self):
         new = not self.config_manager.config.smart_mode
@@ -339,8 +420,14 @@ class VideoDownloaderApp(QMainWindow):
         self.smart_btn.setText(f"✨ Smart: {'On' if is_on else 'Off'}")
         self.smart_btn.setStyleSheet(f"background-color: {self.colors['accent'] if is_on else self.colors['card']}; color: {'white' if is_on else self.colors['text']};")
 
+    def update_thread_limit(self):
+        limit = self.config_manager.config.max_concurrent
+        self.thread_pool.setMaxThreadCount(limit)
+
     def show_settings(self):
-        SettingsDialog(self.config_manager, self).exec()
+        if SettingsDialog(self.config_manager, self).exec():
+            # Refresh if user changed settings
+            self.update_thread_limit()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
