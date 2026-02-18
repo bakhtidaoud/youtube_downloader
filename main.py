@@ -43,8 +43,8 @@ def exception_hook(exctype, value, tb):
     sys.exit(1)
 
 sys.excepthook = exception_hook
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, QThread, pyqtSlot, QPropertyAnimation, QEasingCurve, QRunnable, QThreadPool, QObject, QTimer, QTime
-from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QThread, pyqtSlot, QPropertyAnimation, QEasingCurve, QRunnable, QThreadPool, QObject, QTimer, QTime, pyqtProperty
+from PyQt6.QtGui import QFont, QIcon, QPainter, QPen, QColor, QConicalGradient, QPixmap
 
 import downloader
 from downloader import DownloadProgress
@@ -130,33 +130,101 @@ class DownloadWorker(QRunnable):
         except Exception as e:
             self.signals.error.emit(str(e))
 
+class CircularProgress(QWidget):
+    def __init__(self, colors, size=60):
+        super().__init__()
+        self.setFixedSize(size, size)
+        self.colors = colors
+        self.value = 0
+        self._target = 0
+        self.anim = QPropertyAnimation(self, b"progress_val")
+        self.anim.setDuration(600)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+    @pyqtProperty(float)
+    def progress_val(self): return self.value
+    @progress_val.setter
+    def progress_val(self, v):
+        self.value = v
+        self.update()
+
+    def set_value(self, val):
+        self._target = val
+        self.anim.stop()
+        self.anim.setEndValue(float(val))
+        self.anim.start()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        rect = self.rect().adjusted(5, 5, -5, -5)
+        accent = self.colors['accent']
+        border = self.colors['border']
+        
+        # Background Circle
+        pen = QPen(QColor(border))
+        pen.setWidth(6)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen)
+        painter.drawEllipse(rect)
+        
+        # Progress Arc
+        grad = QConicalGradient(rect.center(), 90)
+        grad.setColorAt(0, QColor(accent))
+        grad.setColorAt(1, QColor(self.colors['accent_light']))
+        
+        pen.setBrush(grad)
+        painter.setPen(pen)
+        
+        span = int(-self.value * 3.6 * 16)
+        painter.drawArc(rect, 90 * 16, span)
+        
+        # Percentage Text
+        painter.setPen(QColor(self.colors['text']))
+        painter.setFont(QFont("Inter", 10, QFont.Weight.Bold))
+        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, f"{int(self.value)}%")
+
+class ImageLoader(QThread):
+    finished = pyqtSignal(bytes)
+    def __init__(self, url):
+        super().__init__()
+        self.url = url
+    def run(self):
+        try:
+            resp = requests.get(self.url, timeout=10)
+            if resp.status_code == 200:
+                self.finished.emit(resp.content)
+        except: pass
+
 class ModernDownloadItem(QFrame):
     remove_requested = pyqtSignal(object)
     finished_successfully = pyqtSignal(str)
 
-    def __init__(self, url, colors):
+    def __init__(self, url, colors, thumbnail_url=None):
         super().__init__()
         self.url = url
         self.colors = colors
+        self.thumbnail_url = thumbnail_url
         self.file_path = None
-        
-        self.opacity_effect = QGraphicsOpacityEffect(self)
-        self.setGraphicsEffect(self.opacity_effect)
-        self.fade_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.fade_anim.setDuration(500)
-        self.fade_anim.setStartValue(0)
-        self.fade_anim.setEndValue(1)
         
         self.init_ui()
         
-        # Pulse animation for loading state
+        if self.thumbnail_url:
+            self.loader = ImageLoader(self.thumbnail_url)
+            self.loader.finished.connect(self.set_thumbnail)
+            self.loader.start()
+            
         self.pulse_timer = QTimer(self)
         self.pulse_timer.timeout.connect(self.update_pulse)
         self.pulse_val = 0
         self.pulse_dir = 1
-        self.pulse_timer.start(50)
-        
-        self.fade_anim.start()
+
+    def set_thumbnail(self, data):
+        pix = QPixmap()
+        pix.loadFromData(data)
+        scaled = pix.scaled(140, 80, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
+        self.thumb_label.setPixmap(scaled)
 
     def update_pulse(self):
         """Creates a professional 'breathing' effect during metadata fetch."""
@@ -198,91 +266,97 @@ class ModernDownloadItem(QFrame):
         """
 
     def init_ui(self):
-        self.setFixedHeight(140)
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(18, 18, 18, 18)
-        self.layout.setSpacing(12)
-        
-        # Meta Row: Checkbox + Title + Actions
-        header_layout = QHBoxLayout()
-        header_layout.setSpacing(10)
-        
+        self.setFixedHeight(110)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(15, 10, 15, 10)
+        layout.setSpacing(15)
+
         self.checkbox = QCheckBox()
         self.checkbox.setFixedSize(22, 22)
         self.checkbox.setChecked(True)
-        header_layout.addWidget(self.checkbox)
+        layout.addWidget(self.checkbox)
 
-        # Icon/Badge Placeholder
-        self.icon_label = QLabel("🎬")
-        self.icon_label.setFixedSize(28, 28)
-        self.icon_label.setStyleSheet(f"background: {self.colors['border']}; border-radius: 14px; font-size: 14px;")
-        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        header_layout.addWidget(self.icon_label)
+        # Thumbnail with Rounded Corners Mask
+        self.thumb_container = QFrame()
+        self.thumb_container.setFixedSize(140, 80)
+        self.thumb_container.setStyleSheet(f"background: {self.colors['bg']}; border-radius: 10px;")
+        self.thumb_layout = QVBoxLayout(self.thumb_container)
+        self.thumb_layout.setContentsMargins(0,0,0,0)
+        
+        self.thumb_label = QLabel()
+        self.thumb_label.setFixedSize(140, 80)
+        self.thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.thumb_label.setStyleSheet("border-radius: 10px;")
+        self.thumb_layout.addWidget(self.thumb_label)
+        layout.addWidget(self.thumb_container)
 
-        self.title_label = QLabel(self.url if len(self.url) < 60 else self.url[:57] + "...")
-        self.title_label.setStyleSheet("font-size: 15px; font-weight: 800;")
-        header_layout.addWidget(self.title_label, 1)
+        # Info Section
+        info_layout = QVBoxLayout()
+        info_layout.setSpacing(4)
+        
+        self.title_label = QLabel(self.url if len(self.url) < 50 else self.url[:47] + "...")
+        self.title_label.setStyleSheet("font-size: 15px; font-weight: 700;")
+        self.title_label.setWordWrap(True)
+        info_layout.addWidget(self.title_label)
 
+        self.status_label = QLabel("Awaiting command...")
+        self.status_label.setStyleSheet(f"font-size: 12px; color: {self.colors['sub_text']};")
+        info_layout.addWidget(self.status_label)
+        
+        self.stats_label = QLabel("Ready for extraction")
+        self.stats_label.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {self.colors['accent']};")
+        info_layout.addWidget(self.stats_label)
+        layout.addLayout(info_layout, 1)
+
+        # Circular Progress
+        self.pbar = CircularProgress(self.colors, size=70)
+        layout.addWidget(self.pbar)
+
+        # Actions
+        actions_layout = QVBoxLayout()
+        actions_layout.setSpacing(5)
+        
         self.btn_open = QPushButton("📂")
-        self.btn_open.setFixedSize(34, 34)
+        self.btn_open.setFixedSize(36, 36)
         self.btn_open.setEnabled(False)
-        self.btn_open.setToolTip("Show in Folder")
         self.btn_open.clicked.connect(self.open_folder)
-        header_layout.addWidget(self.btn_open)
+        actions_layout.addWidget(self.btn_open)
 
         self.btn_cancel = QPushButton("✕")
-        self.btn_cancel.setFixedSize(34, 34)
-        self.btn_cancel.setToolTip("Remove Task")
+        self.btn_cancel.setFixedSize(36, 36)
         self.btn_cancel.clicked.connect(lambda: self.remove_requested.emit(self))
-        header_layout.addWidget(self.btn_cancel)
-        self.layout.addLayout(header_layout)
+        actions_layout.addWidget(self.btn_cancel)
+        layout.addLayout(actions_layout)
 
-        # Progress Section
-        self.pbar = QProgressBar()
-        self.pbar.setFixedHeight(6)
-        self.pbar.setTextVisible(False)
-        self.layout.addWidget(self.pbar)
-        
-        self.pbar_anim = QPropertyAnimation(self.pbar, b"value")
-        self.pbar_anim.setDuration(400)
-        self.pbar_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-
-        # Status Footer
-        footer_layout = QHBoxLayout()
-        self.status_label = QLabel("🔍 Analyzing resource stream...")
-        self.status_label.setStyleSheet(f"font-size: 12px; font-weight: 500; color: {self.colors['accent']};")
-        footer_layout.addWidget(self.status_label)
-        footer_layout.addStretch()
-        
-        self.stats_label = QLabel("Awaiting connection")
-        self.stats_label.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {self.colors['sub_text']}; letter-spacing: 0.5px;")
-        footer_layout.addWidget(self.stats_label)
-        self.layout.addLayout(footer_layout)
-        
         self.update_style()
 
     def update_style(self):
-        # Initial call, further updates via pulse_timer
+        # Initial call
+        self.setStyleSheet(self.card_style(1.0))
+
+    def start_pulse(self):
+        if not self.pulse_timer.isActive():
+            self.pulse_timer.start(50)
+
+    def stop_pulse(self):
+        self.pulse_timer.stop()
         self.setStyleSheet(self.card_style(1.0))
 
     @pyqtSlot(object)
     def update_progress(self, prog: DownloadProgress):
-        if prog.title and prog.title != "Unknown":
-            self.title_label.setText(prog.title if len(prog.title) < 60 else prog.title[:57] + "...")
+        # Stop pulsing once we have real progress data
+        self.stop_pulse()
         
-        target = int(prog.percentage)
-        if target > self.pbar.value():
-            self.pbar_anim.stop()
-            self.pbar_anim.setEndValue(target)
-            self.pbar_anim.start()
-            
-        self.stats_label.setText(f"{prog.speed} • {prog.eta} left")
+        if prog.title and prog.title != "Unknown":
+            self.title_label.setText(prog.title if len(prog.title) < 50 else prog.title[:47] + "...")
+        
+        self.pbar.set_value(int(prog.percentage))
+        self.stats_label.setText(f"{prog.speed} • {prog.eta}")
         
         if prog.status == 'downloading':
-            self.status_label.setText("🔥 Extracting high-fidelity layers...")
+            self.status_label.setText("Extracting fidelity layers...")
         elif prog.status == 'finished':
-            self.status_label.setText("Successfully Archived ✨")
-            self.pbar.setValue(100)
+            self.status_label.setText("Archived 🚀")
             self.btn_open.setEnabled(True)
             self.btn_open.setStyleSheet(f"background: {self.colors['success']}; color: white; border: none;")
             self.finished_successfully.emit(prog.title)
@@ -321,6 +395,7 @@ class VideoDownloaderApp(QMainWindow):
 
         self.init_theme()
         self.init_ui()
+        self.center_window()
         self.init_smart_mode()
         
         # Check for Updates
@@ -546,6 +621,13 @@ class VideoDownloaderApp(QMainWindow):
         self.stack.currentChanged.connect(self.on_stack_changed)
         self.apply_styles()
 
+    def center_window(self):
+        screen = QApplication.primaryScreen().geometry()
+        size = self.geometry()
+        x = (screen.width() - size.width()) // 2
+        y = (screen.height() - size.height()) // 2
+        self.move(x, y)
+
     def on_stack_changed(self, index):
         """Lazy load tabs when they are first accessed."""
         if index == 1 and self.browser_view is None:
@@ -598,9 +680,35 @@ class VideoDownloaderApp(QMainWindow):
                 border-radius: 12px; 
                 padding: 10px 15px; 
                 font-size: 14px;
+                color: {self.colors['text']};
             }}
             QComboBox::drop-down {{ border: none; }}
             QComboBox:hover {{ border-color: {accent}; }}
+            QComboBox QAbstractItemView {{
+                background-color: {self.colors['card']};
+                border: 1px solid {self.colors['border']};
+                selection-background-color: {accent};
+                color: {self.colors['text']};
+                outline: none;
+            }}
+
+            QCheckBox {{
+                spacing: 8px;
+                color: {self.colors['text']};
+            }}
+            QCheckBox::indicator {{
+                width: 20px;
+                height: 20px;
+                background-color: {self.colors['card']};
+                border: 2px solid {self.colors['border']};
+                border-radius: 6px;
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {accent};
+                border-color: {accent};
+                image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMjAgNiA5IDE3IDQgMTIiPjwvcG9seWxpbmU+PC9zdmc+);
+            }}
+            QCheckBox::indicator:hover {{ border-color: {accent}; }}
 
             #download_btn {{ 
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {accent}, stop:1 {self.colors['accent_light']});
@@ -693,6 +801,7 @@ class VideoDownloaderApp(QMainWindow):
             while self.pending_queue:
                 worker, widget = self.pending_queue.pop(0)
                 widget.status_label.setText("Starting scheduled download...")
+                widget.start_pulse()
                 self.thread_pool.start(worker)
 
     def analyze_new_url(self):
@@ -736,10 +845,11 @@ class VideoDownloaderApp(QMainWindow):
             if not video_url: continue
             
             title = entry.get('title') or video_url
+            thumb = entry.get('thumbnail')
             
             item = QListWidgetItem(self.downloads_list)
-            widget = ModernDownloadItem(video_url, self.colors)
-            widget.title_label.setText(title if len(title) < 60 else title[:57] + "...")
+            widget = ModernDownloadItem(video_url, self.colors, thumbnail_url=thumb)
+            widget.title_label.setText(title if len(title) < 50 else title[:47] + "...")
             widget.status_label.setText("Ready for extraction")
             widget.finished_successfully.connect(self.show_notification)
             item.setSizeHint(widget.sizeHint())
@@ -777,6 +887,7 @@ class VideoDownloaderApp(QMainWindow):
                 worker = DownloadWorker(widget.url, format_id=engine_format, settings=settings)
                 worker.signals.progress.connect(widget.update_progress)
                 
+                widget.start_pulse()
                 if self.is_within_schedule():
                     self.thread_pool.start(worker)
                 else:

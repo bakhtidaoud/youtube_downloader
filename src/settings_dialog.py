@@ -164,31 +164,60 @@ class SettingsDialog(QDialog):
             QTabWidget::pane {{ border: 1px solid {self.colors['border']}; border-radius: 12px; background: {self.colors['card']}; }}
             QTabBar::tab {{
                 background: transparent;
-                padding: 15px 20px;
-                min-width: 120px;
+                padding: 15px 23px;
+                min-width: 130px;
                 text-align: left;
                 color: {self.colors['sub_text']};
             }}
             QTabBar::tab:selected {{
                 color: {accent};
-                font-weight: bold;
-                border-right: 2px solid {accent};
+                font-weight: 800;
+                border-right: 3px solid {accent};
             }}
             
             QLineEdit, QSpinBox, QComboBox, QTimeEdit {{
                 background-color: {self.colors['bg']};
                 border: 1px solid {self.colors['border']};
                 border-radius: 8px;
-                padding: 8px;
+                padding: 8px 12px;
+                color: {self.colors['text']};
             }}
+            
+            QComboBox QAbstractItemView {{
+                background-color: {self.colors['card']};
+                border: 1px solid {self.colors['border']};
+                selection-background-color: {accent};
+                color: {self.colors['text']};
+                outline: none;
+            }}
+
+            QCheckBox {{
+                spacing: 10px;
+                color: {self.colors['text']};
+                font-weight: 500;
+            }}
+            QCheckBox::indicator {{
+                width: 22px;
+                height: 22px;
+                background-color: {self.colors['bg']};
+                border: 2px solid {self.colors['border']};
+                border-radius: 6px;
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {accent};
+                border-color: {accent};
+                image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMjAgNiA5IDE3IDQgMTIiPjwvcG9seWxpbmU+PC9zdmc+);
+            }}
+            QCheckBox::indicator:hover {{ border-color: {accent}; }}
             
             QPushButton {{
                 background-color: {self.colors['card']};
                 border: 1px solid {self.colors['border']};
-                border-radius: 8px;
-                padding: 8px 15px;
+                border-radius: 10px;
+                padding: 10px 20px;
+                font-weight: 600;
             }}
-            QPushButton:hover {{ border-color: {accent}; }}
+            QPushButton:hover {{ border-color: {accent}; background-color: {self.colors['bg']}; }}
         """)
 
     def select_folder(self):

@@ -93,3 +93,20 @@ Traceback (most recent call last):
     
 KeyboardInterrupt
 
+2026-02-18 22:32:12,339 - UltraTube - CRITICAL - Unhandled exception:
+Traceback (most recent call last):
+  File "C:\projects\tkinter\youtube_download\main.py", line 899, in <module>
+    window = VideoDownloaderApp()
+  File "C:\projects\tkinter\youtube_download\main.py", line 333, in __init__
+    self.init_ui()
+    ~~~~~~~~~~~~^^
+  File "C:\projects\tkinter\youtube_download\main.py", line 430, in init_ui
+    self.init_downloader_view()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\projects\tkinter\youtube_download\main.py", line 553, in init_downloader_view
+    self.stack_dl.addWidget(self.empty_state)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+2026-02-18 22:33:48,779 - UltraTube - INFO - Checking for updates...
+2026-02-18 22:35:45,825 - UltraTube - INFO - Lazy loading Embedded Browser...

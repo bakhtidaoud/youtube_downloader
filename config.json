@@ -1,6 +1,6 @@
 {
-    "download_folder": "downloads",
-    "preferred_quality": "best",
+    "download_folder": "C:/Users/PC/Downloads",
+    "preferred_quality": "Best Available",
     "proxy": null,
     "dark_mode": true,
     "auto_update_ytdlp": true,
@@ -13,7 +13,7 @@
     "archive_file": "archive.txt",
     "browser_cookies": "None",
     "use_internal_browser": false,
-    "smart_mode": false,
+    "smart_mode": true,
     "last_format": "Best (Auto)",
     "last_quality": "Best Available",
     "subscriptions": [],
